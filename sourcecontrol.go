@@ -5,7 +5,12 @@ import (
 	"strings"
 
 	"github.com/leep-frog/command"
+	"github.com/leep-frog/command/sourcerer"
 )
+
+func GitCLI() sourcerer.CLI {
+	return &Git{}
+}
 
 type Git struct{}
 
