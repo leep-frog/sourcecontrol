@@ -23,10 +23,8 @@ func (*Git) Name() string {
 func filesWithPrefix(prefixCode string) ([]string, error) {
 	return command.BashCommand[[]string]("opts", []string{
 		fmt.Sprintf(`results="$(git status --porcelain | grep "%s" | cut -c 4-)";`, prefixCode),
-		`echo RES: $results > autocomplete.txt`,
 		`relative_results="";`,
 		`toplevel="$(git rev-parse --show-toplevel)";`,
-		`echo TL: $toplevel >> autocomplete.txt`,
 		`for git_path in $results;`,
 		`do`,
 		`    full_path="$toplevel/$git_path";`,
@@ -34,8 +32,8 @@ func filesWithPrefix(prefixCode string) ([]string, error) {
 		`    relative_results="$relative_results $path";`,
 		`done;`,
 		`echo $relative_results`,
-		`echo REL_RES: $relative_results >> autocomplete.txt`,
 	}).Run(nil)
+
 }
 
 func prefixCompletor[T any](prefixCode string) *command.Completor[T] {
@@ -47,6 +45,7 @@ func prefixCompletor[T any](prefixCode string) *command.Completor[T] {
 			}
 			return &command.Completion{
 				Suggestions: results,
+				Distinct:    true,
 			}, nil
 		}),
 	}
