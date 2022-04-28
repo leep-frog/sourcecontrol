@@ -139,6 +139,24 @@ func (g *Git) Node() *command.Node {
 			}),
 		),
 
+		// Commit & push
+		"cp": command.SerialNodes(
+			command.Description("Commit and push"),
+			command.NewFlagNode(
+				nvFlag,
+			),
+			command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList),
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				r := []string{
+					fmt.Sprintf("git commit -m %q", strings.Join(d.StringList("MESSAGE"), " ")),
+				}
+				if d.Bool(nvFlag.Name()) {
+					r = append(r, " --no-verify")
+				}
+				return append(r, "&& git push"), nil
+			}),
+		),
+
 		// Checkout new branch
 		"cb": command.SerialNodes(
 			command.Description("Checkout new branch"),

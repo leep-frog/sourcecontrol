@@ -13,7 +13,7 @@ alias cm='git checkout master' # done
 alias gcb='git checkout -b' # done
 alias gmm='git merge master' # done
 
-function gcp {
+function gcp { # TODO
   _commit "$*" && gp && echo SUCCESS!
 }
 
