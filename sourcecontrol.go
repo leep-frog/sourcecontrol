@@ -8,6 +8,8 @@ import (
 	"github.com/leep-frog/command/sourcerer"
 )
 
+// TODO: test this package
+
 func GitCLI() sourcerer.CLI {
 	return &Git{}
 }
@@ -215,5 +217,3 @@ func (g *Git) Node() *command.Node {
 		"l": []string{"pl"},
 	}))
 }
-
-//func (g *Git) status()
