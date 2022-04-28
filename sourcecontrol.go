@@ -135,7 +135,7 @@ func (g *git) Node() *command.Node {
 				if d.Bool(nvFlag.Name()) {
 					r = append(r, " --no-verify")
 				}
-				return r, nil
+				return []string{strings.Join(r, " ")}, nil
 			}),
 		),
 
@@ -151,9 +151,9 @@ func (g *git) Node() *command.Node {
 					fmt.Sprintf("git commit -m %q", strings.Join(d.StringList("MESSAGE"), " ")),
 				}
 				if d.Bool(nvFlag.Name()) {
-					r = append(r, " --no-verify")
+					r = append(r, "--no-verify")
 				}
-				return append(r, "&& git push"), nil
+				return []string{strings.Join(append(r, "&& git push"), " ")}, nil
 			}),
 		),
 
