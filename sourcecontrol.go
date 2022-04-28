@@ -11,14 +11,14 @@ import (
 // TODO: test this package
 
 func GitCLI() sourcerer.CLI {
-	return &Git{}
+	return &git{}
 }
 
-type Git struct{}
+type git struct{}
 
-func (*Git) Changed() bool   { return false }
-func (*Git) Setup() []string { return nil }
-func (*Git) Name() string {
+func (*git) Changed() bool   { return false }
+func (*git) Setup() []string { return nil }
+func (*git) Name() string {
 	return "g"
 }
 
@@ -48,7 +48,7 @@ func prefixCompletor[T any](prefixCode string) *command.Completor[T] {
 	}
 }
 
-func (g *Git) Node() *command.Node {
+func (g *git) Node() *command.Node {
 	addCompletor := prefixCompletor[[]string](".[^ ]")
 
 	nvFlag := command.BoolFlag("no-verify", 'n', "Whether or not to run pre-commit checks")
@@ -214,7 +214,7 @@ func (g *Git) Node() *command.Node {
 			uaArgs,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				return []string{
-					fmt.Sprintf("git checkout -- %s", strings.Join(d.StringList(uaArgs.Name()), " ")),
+					fmt.Sprintf("git reset %s", strings.Join(d.StringList(uaArgs.Name()), " ")),
 				}, nil
 			}),
 		),
