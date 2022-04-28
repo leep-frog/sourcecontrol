@@ -14,14 +14,13 @@ func GitCLI() sourcerer.CLI {
 
 type Git struct{}
 
-func (*Git) Load(jsn string) error { return nil }
-func (*Git) Changed() bool         { return false }
-func (*Git) Setup() []string       { return nil }
+func (*Git) Changed() bool   { return false }
+func (*Git) Setup() []string { return nil }
 func (*Git) Name() string {
 	return "g"
 }
 
-func (g *Git) filesWithPrefix(prefixCode string) ([]string, error) {
+func filesWithPrefix(prefixCode string) ([]string, error) {
 	return command.BashCommand[[]string]("opts", []string{
 		fmt.Sprintf(`results="$(git status --porcelain | grep "%s" | cut -c 4-)";`, prefixCode),
 		`relative_results="";`,
@@ -35,13 +34,10 @@ func (g *Git) filesWithPrefix(prefixCode string) ([]string, error) {
 	}).Run(nil)
 }
 
-//func (g *Git) autocompleteStatus
-
-func (g *Git) Node() *command.Node {
-	//porcelain
-	ac := &command.Completor[[]string]{
-		SuggestionFetcher: command.SimpleFetcher(func(ts []string, d *command.Data) (*command.Completion, error) {
-			results, err := g.filesWithPrefix(".[^ ]")
+func prefixCompletor[T any](prefixCode string) *command.Completor[T] {
+	return &command.Completor[T]{
+		SuggestionFetcher: command.SimpleFetcher(func(T, *command.Data) (*command.Completion, error) {
+			results, err := filesWithPrefix(prefixCode)
 			if err != nil {
 				return nil, err
 			}
@@ -50,37 +46,164 @@ func (g *Git) Node() *command.Node {
 			}, nil
 		}),
 	}
+}
+
+func (g *Git) Node() *command.Node {
+	addCompletor := prefixCompletor[[]string](".[^ ]")
+
+	nvFlag := command.BoolFlag("no-verify", 'n', "Whether or not to run pre-commit checks")
+
+	branchArg := command.Arg[string](
+		"BRANCH",
+		"Branch",
+		command.BashCompletor[string](`git branch | grep -v "\*"`),
+	)
+
+	diffArgs := command.ListArg[string](
+		"FILE", "Files to diff",
+		0, command.UnboundedList,
+		&command.Completor[[]string]{
+			SuggestionFetcher: command.BashFetcher[[]string]("git diff --name-only --relative"),
+			Distinct:          true,
+		},
+	)
+
+	uaArgs := command.ListArg[string](
+		"FILE", "Files to un-add",
+		1, command.UnboundedList,
+		// prefixCompletor[[]string]("[^ ]."),
+		&command.Completor[[]string]{
+			SuggestionFetcher: command.BashFetcher[[]string]("git diff --cached --name-only --relative"),
+			Distinct:          true,
+		},
+	)
+
+	ucArgs := command.ListArg[string](
+		"FILE", "Files to un-change",
+		1, command.UnboundedList,
+		prefixCompletor[[]string](".[^ ]"),
+	)
+
 	return command.BranchNode(map[string]*command.Node{
-		"s": command.SerialNodes(
-			command.Description("Status"),
-			command.SimpleExecutableNode("git status"),
-		),
+		// Simple commands
 		"b": command.SerialNodes(
 			command.Description("Branch"),
 			command.SimpleExecutableNode("git branch"),
-		),
-		"c": command.SerialNodes(
-			command.Description("Commit"),
-			command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList),
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				return []string{fmt.Sprintf("git commit %q", strings.Join(d.StringList("MESSAGE"), " "))}, nil
-			}),
-		),
-		"p": command.SerialNodes(
-			command.Description("Push"),
-			command.SimpleExecutableNode("git push"),
 		),
 		"l": command.SerialNodes(
 			command.Description("Pull"),
 			command.SimpleExecutableNode("git pull"),
 		),
+		"m": command.SerialNodes(
+			command.Description("Checkout main"),
+			command.SimpleExecutableNode("git checkout main"),
+		),
+		"mm": command.SerialNodes(
+			command.Description("Merge main"),
+			command.SimpleExecutableNode("git merge main"),
+		),
+		"p": command.SerialNodes(
+			command.Description("Push"),
+			command.SimpleExecutableNode("git push"),
+		),
 		"pp": command.SerialNodes(
 			command.Description("Pull and push"),
 			command.SimpleExecutableNode("git pull && git push"),
 		),
+		"s": command.SerialNodes(
+			command.Description("Status"),
+			command.SimpleExecutableNode("git status"),
+		),
+		"uco": command.SerialNodes(
+			command.Description("Undo commit"),
+			command.SimpleExecutableNode("git reset HEAD~"),
+		),
+
+		// Complex commands
+		// Commit
+		"c": command.SerialNodes(
+			command.Description("Commit"),
+			command.NewFlagNode(
+				nvFlag,
+			),
+			command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList),
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				r := []string{
+					fmt.Sprintf("git commit %q", strings.Join(d.StringList("MESSAGE"), " ")),
+				}
+				if d.Bool(nvFlag.Name()) {
+					r = append(r, " --no-verify")
+				}
+				return r, nil
+			}),
+		),
+
+		// Checkout new branch
+		"cb": command.SerialNodes(
+			command.Description("Checkout new branch"),
+			branchArg,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				return []string{
+					fmt.Sprintf("git checkout -b %s", d.String(branchArg.Name())),
+				}, nil
+			}),
+		),
+
+		// Change/Checkout branch
+		"ch": command.SerialNodes(
+			command.Description("Checkout existing branch"),
+			branchArg,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				return []string{
+					fmt.Sprintf("git checkout %s", d.String(branchArg.Name())),
+				}, nil
+			}),
+		),
+
+		// Diff
+		"d": command.SerialNodes(
+			command.Description("Diff"),
+			command.NewFlagNode(
+				command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs"),
+			),
+			diffArgs,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				branch := "--"
+				if d.Bool("main") {
+					branch = "main"
+				}
+				return []string{
+					fmt.Sprintf("git diff %s %s", branch, strings.Join(d.StringList(diffArgs.Name()), " ")),
+				}, nil
+			}),
+		),
+
+		// Undo change
+		"uc": command.SerialNodes(
+			command.Description("Undo change"),
+			ucArgs,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				return []string{
+					fmt.Sprintf("git checkout -- %s", strings.Join(d.StringList(ucArgs.Name()), " ")),
+				}, nil
+			}),
+		),
+
+		// Undo add
+		"ua": command.SerialNodes(
+			command.Description("Undo add"),
+			uaArgs,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				return []string{
+					fmt.Sprintf("git checkout -- %s", strings.Join(d.StringList(uaArgs.Name()), " ")),
+				}, nil
+			}),
+		),
+
+		// Add
 		"a": command.SerialNodes(
 			command.Description("Add"),
-			command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, ac),
+			command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor),
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				fs := d.StringList("FILES")
 				if len(fs) == 0 {
@@ -89,7 +212,9 @@ func (g *Git) Node() *command.Node {
 				return []string{fmt.Sprintf("git add %s", strings.Join(fs, " "))}, nil
 			}),
 		),
-	}, nil)
+	}, nil, command.BranchAliases(map[string][]string{
+		"l": []string{"pl"},
+	}))
 }
 
 //func (g *Git) status()
