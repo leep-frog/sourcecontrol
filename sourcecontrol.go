@@ -23,14 +23,17 @@ func (*Git) Name() string {
 func filesWithPrefix(prefixCode string) ([]string, error) {
 	return command.BashCommand[[]string]("opts", []string{
 		fmt.Sprintf(`results="$(git status --porcelain | grep "%s" | cut -c 4-)";`, prefixCode),
+		`echo RES: $results > autocomplete.txt`,
 		`relative_results="";`,
 		`toplevel="$(git rev-parse --show-toplevel)";`,
+		`echo TL: $toplevel >> autocomplete.txt`,
 		`for git_path in $results;`,
 		`do`,
 		`    full_path="$toplevel/$git_path";`,
 		`    path="$(realpath --relative-to="." "$full_path")";`,
 		`    relative_results="$relative_results $path";`,
 		`done;`,
+		`echo REL_RES: $relative_results >> autocomplete.txt`,
 	}).Run(nil)
 }
 
@@ -129,7 +132,7 @@ func (g *Git) Node() *command.Node {
 			command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList),
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				r := []string{
-					fmt.Sprintf("git commit %q", strings.Join(d.StringList("MESSAGE"), " ")),
+					fmt.Sprintf("git commit -m %q", strings.Join(d.StringList("MESSAGE"), " ")),
 				}
 				if d.Bool(nvFlag.Name()) {
 					r = append(r, " --no-verify")
