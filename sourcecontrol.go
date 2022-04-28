@@ -38,6 +38,7 @@ func filesWithPrefix(prefixCode string) ([]string, error) {
 
 func prefixCompletor[T any](prefixCode string) *command.Completor[T] {
 	return &command.Completor[T]{
+		Distinct: true,
 		SuggestionFetcher: command.SimpleFetcher(func(T, *command.Data) (*command.Completion, error) {
 			results, err := filesWithPrefix(prefixCode)
 			if err != nil {
@@ -45,7 +46,6 @@ func prefixCompletor[T any](prefixCode string) *command.Completor[T] {
 			}
 			return &command.Completion{
 				Suggestions: results,
-				Distinct:    true,
 			}, nil
 		}),
 	}
