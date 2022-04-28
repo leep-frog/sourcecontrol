@@ -33,6 +33,7 @@ func filesWithPrefix(prefixCode string) ([]string, error) {
 		`    path="$(realpath --relative-to="." "$full_path")";`,
 		`    relative_results="$relative_results $path";`,
 		`done;`,
+		`echo $relative_results`,
 		`echo REL_RES: $relative_results >> autocomplete.txt`,
 	}).Run(nil)
 }
@@ -113,6 +114,7 @@ func (g *Git) Node() *command.Node {
 			command.Description("Pull and push"),
 			command.SimpleExecutableNode("git pull && git push"),
 		),
+
 		"s": command.SerialNodes(
 			command.Description("Status"),
 			command.SimpleExecutableNode("git status"),
