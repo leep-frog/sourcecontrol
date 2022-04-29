@@ -11,6 +11,7 @@ aliaser cm g m
 aliaser gcb g cb
 aliaser gmm g mm
 aliaser gcp g cp
+aliaser gd g d -m
 aliaser gdm g d -m
 aliaser ga g a
 aliaser guc g uc
