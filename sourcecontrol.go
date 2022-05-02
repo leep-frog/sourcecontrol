@@ -10,16 +10,34 @@ import (
 
 // TODO: test this package
 
+const (
+	commitCacheKey = "COMMIT_CACHE_KEY"
+)
+
 func GitCLI() sourcerer.CLI {
 	return &git{}
 }
 
-type git struct{}
+type git struct {
+	Caches  map[string][][]string
+	changed bool
+}
 
 func (*git) Changed() bool   { return false }
 func (*git) Setup() []string { return nil }
 func (*git) Name() string {
 	return "g"
+}
+
+func (g *git) Cache() map[string][][]string {
+	if g.Caches == nil {
+		g.Caches = map[string][][]string{}
+	}
+	return g.Caches
+}
+
+func (g *git) MarkChanged() {
+	g.changed = true
 }
 
 func filesWithPrefix(prefixCode string) ([]string, error) {
@@ -52,6 +70,7 @@ func (g *git) Node() *command.Node {
 	addCompletor := prefixCompletor[[]string](".[^ ]")
 
 	nvFlag := command.BoolFlag("no-verify", 'n', "Whether or not to run pre-commit checks")
+	pushFlag := command.BoolFlag("push", 'p', "Whether or not to push afterwards")
 
 	branchArg := command.Arg[string](
 		"BRANCH",
@@ -122,21 +141,27 @@ func (g *git) Node() *command.Node {
 
 		// Complex commands
 		// Commit
-		"c": command.SerialNodes(
+		"c": command.CacheNode(commitCacheKey, g, command.SerialNodes(
 			command.Description("Commit"),
 			command.NewFlagNode(
 				nvFlag,
+				pushFlag,
 			),
 			command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList),
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				r := []string{
 					fmt.Sprintf("git commit -m %q", strings.Join(d.StringList("MESSAGE"), " ")),
 				}
-				if d.Bool(nvFlag.Name()) {
+				if nvFlag.Get(d) {
 					r = append(r, " --no-verify")
 				}
+				if pushFlag.Get(d) {
+					r = append(r, "&& git push")
+				}
+				r = append(r, "&& echo Success!")
+				//if d.Bool(pushFlag.Name())
 				return []string{strings.Join(r, " ")}, nil
-			}),
+			})),
 		),
 
 		// Commit & push
@@ -150,7 +175,7 @@ func (g *git) Node() *command.Node {
 				r := []string{
 					fmt.Sprintf("git commit -m %q", strings.Join(d.StringList("MESSAGE"), " ")),
 				}
-				if d.Bool(nvFlag.Name()) {
+				if nvFlag.Get(d) {
 					r = append(r, "--no-verify")
 				}
 				return []string{strings.Join(append(r, "&& git push"), " ")}, nil
@@ -163,7 +188,7 @@ func (g *git) Node() *command.Node {
 			branchArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				return []string{
-					fmt.Sprintf("git checkout -b %s", d.String(branchArg.Name())),
+					fmt.Sprintf("git checkout -b %s", branchArg.Get(d)),
 				}, nil
 			}),
 		),
@@ -174,7 +199,7 @@ func (g *git) Node() *command.Node {
 			branchArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				return []string{
-					fmt.Sprintf("git checkout %s", d.String(branchArg.Name())),
+					fmt.Sprintf("git checkout %s", branchArg.Get(d)),
 				}, nil
 			}),
 		),
@@ -192,7 +217,7 @@ func (g *git) Node() *command.Node {
 					branch = "main"
 				}
 				return []string{
-					fmt.Sprintf("git diff %s %s", branch, strings.Join(d.StringList(diffArgs.Name()), " ")),
+					fmt.Sprintf("git diff %s %s", branch, strings.Join(diffArgs.Get(d), " ")),
 				}, nil
 			}),
 		),
