@@ -14,6 +14,20 @@ const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
 )
 
+var (
+	nvFlag     = command.BoolFlag("no-verify", 'n', "Whether or not to run pre-commit checks")
+	pushFlag   = command.BoolFlag("push", 'p', "Whether or not to push afterwards")
+	messageArg = command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
+	branchArg  = command.Arg[string](
+		"BRANCH",
+		"Branch",
+		command.BashCompletor[string](`git branch | grep -v "\*"`),
+	)
+	mainFlag     = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
+	addCompletor = prefixCompletor[[]string](".[^ ]")
+	filesArg     = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor)
+)
+
 func GitCLI() sourcerer.CLI {
 	return &git{}
 }
@@ -67,17 +81,6 @@ func prefixCompletor[T any](prefixCode string) *command.Completor[T] {
 }
 
 func (g *git) Node() *command.Node {
-	addCompletor := prefixCompletor[[]string](".[^ ]")
-
-	nvFlag := command.BoolFlag("no-verify", 'n', "Whether or not to run pre-commit checks")
-	pushFlag := command.BoolFlag("push", 'p', "Whether or not to push afterwards")
-
-	branchArg := command.Arg[string](
-		"BRANCH",
-		"Branch",
-		command.BashCompletor[string](`git branch | grep -v "\*"`),
-	)
-
 	diffArgs := command.ListArg[string](
 		"FILE", "Files to diff",
 		0, command.UnboundedList,
@@ -147,10 +150,10 @@ func (g *git) Node() *command.Node {
 				nvFlag,
 				pushFlag,
 			),
-			command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList),
+			messageArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				r := []string{
-					fmt.Sprintf("git commit -m %q", strings.Join(d.StringList("MESSAGE"), " ")),
+					fmt.Sprintf("git commit -m %q", strings.Join(messageArg.Get(d), " ")),
 				}
 				if nvFlag.Get(d) {
 					r = append(r, " --no-verify")
@@ -170,10 +173,10 @@ func (g *git) Node() *command.Node {
 			command.NewFlagNode(
 				nvFlag,
 			),
-			command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList),
+			messageArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				r := []string{
-					fmt.Sprintf("git commit -m %q", strings.Join(d.StringList("MESSAGE"), " ")),
+					fmt.Sprintf("git commit -m %q", strings.Join(messageArg.Get(d), " ")),
 				}
 				if nvFlag.Get(d) {
 					r = append(r, "--no-verify")
@@ -207,13 +210,11 @@ func (g *git) Node() *command.Node {
 		// Diff
 		"d": command.SerialNodes(
 			command.Description("Diff"),
-			command.NewFlagNode(
-				command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs"),
-			),
+			command.NewFlagNode(mainFlag),
 			diffArgs,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				branch := "--"
-				if d.Bool("main") {
+				if mainFlag.Get(d) {
 					branch = "main"
 				}
 				return []string{
@@ -228,7 +229,7 @@ func (g *git) Node() *command.Node {
 			ucArgs,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				return []string{
-					fmt.Sprintf("git checkout -- %s", strings.Join(d.StringList(ucArgs.Name()), " ")),
+					fmt.Sprintf("git checkout -- %s", strings.Join(ucArgs.Get(d), " ")),
 				}, nil
 			}),
 		),
@@ -239,7 +240,7 @@ func (g *git) Node() *command.Node {
 			uaArgs,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				return []string{
-					fmt.Sprintf("git reset %s", strings.Join(d.StringList(uaArgs.Name()), " ")),
+					fmt.Sprintf("git reset %s", strings.Join(ucArgs.Get(d), " ")),
 				}, nil
 			}),
 		),
@@ -247,9 +248,9 @@ func (g *git) Node() *command.Node {
 		// Add
 		"a": command.SerialNodes(
 			command.Description("Add"),
-			command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor),
+			filesArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				fs := d.StringList("FILES")
+				fs := filesArg.Get(d)
 				if len(fs) == 0 {
 					return []string{"git add ."}, nil
 				}
