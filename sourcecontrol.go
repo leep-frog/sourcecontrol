@@ -23,7 +23,7 @@ func (*git) Name() string {
 }
 
 func filesWithPrefix(prefixCode string) ([]string, error) {
-	return command.BashCommand[[]string]("opts", []string{
+	return command.NewBashCommand[[]string]("opts", []string{
 		fmt.Sprintf(`results="$(git status --porcelain | grep "%s" | cut -c 4-)";`, prefixCode),
 		`toplevel="$(git rev-parse --show-toplevel)";`,
 		`for git_path in $results;`,
@@ -36,7 +36,7 @@ func filesWithPrefix(prefixCode string) ([]string, error) {
 func prefixCompletor[T any](prefixCode string) *command.Completor[T] {
 	return &command.Completor[T]{
 		Distinct: true,
-		SuggestionFetcher: command.SimpleFetcher(func(T, *command.Data) (*command.Completion, error) {
+		Fetcher: command.SimpleFetcher(func(T, *command.Data) (*command.Completion, error) {
 			results, err := filesWithPrefix(prefixCode)
 			if err != nil {
 				return nil, err
@@ -63,8 +63,8 @@ func (g *git) Node() *command.Node {
 		"FILE", "Files to diff",
 		0, command.UnboundedList,
 		&command.Completor[[]string]{
-			SuggestionFetcher: command.BashFetcher[[]string]("git diff --name-only --relative"),
-			Distinct:          true,
+			Fetcher:  command.BashFetcher[[]string]("git diff --name-only --relative"),
+			Distinct: true,
 		},
 	)
 
@@ -73,8 +73,8 @@ func (g *git) Node() *command.Node {
 		1, command.UnboundedList,
 		// prefixCompletor[[]string]("[^ ]."),
 		&command.Completor[[]string]{
-			SuggestionFetcher: command.BashFetcher[[]string]("git diff --cached --name-only --relative"),
-			Distinct:          true,
+			Fetcher:  command.BashFetcher[[]string]("git diff --cached --name-only --relative"),
+			Distinct: true,
 		},
 	)
 
@@ -231,7 +231,7 @@ func (g *git) Node() *command.Node {
 				return []string{fmt.Sprintf("git add %s", strings.Join(fs, " "))}, nil
 			}),
 		),
-	}, nil, command.BranchAliases(map[string][]string{
+	}, nil, command.BranchSynonyms(map[string][]string{
 		"l": []string{"pl"},
 	}))
 }
