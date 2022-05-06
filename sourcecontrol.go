@@ -32,6 +32,29 @@ func GitCLI() sourcerer.CLI {
 	return &git{}
 }
 
+func GitAliasers() sourcerer.Option {
+	return sourcerer.Aliasers(map[string][]string{
+		"gp":   []string{"g", "p"},
+		"gpl":  []string{"g", "pl"},
+		"gs":   []string{"g", "s"},
+		"guco": []string{"g", "uco"},
+		"gb":   []string{"g", "b"},
+		"gc":   []string{"g", "c"},
+		"gcnv": []string{"g", "c", "-n"},
+		"cm":   []string{"g", "m"},
+		"gcb":  []string{"g", "cb"},
+		"gmm":  []string{"g", "mm"},
+		"mm":   []string{"g", "mm"},
+		"gcp":  []string{"g", "cp"},
+		"gd":   []string{"g", "d"},
+		"gdm":  []string{"g", "d", "-m"},
+		"ga":   []string{"g", "a"},
+		"guc":  []string{"g", "uc"},
+		"gua":  []string{"g", "ua"},
+		"ch":   []string{"g", "ch"},
+	})
+}
+
 type git struct {
 	Caches  map[string][][]string
 	changed bool
