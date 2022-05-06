@@ -23,9 +23,11 @@ var (
 		"Branch",
 		command.BashCompletor[string](`git branch | grep -v "\*"`),
 	)
-	mainFlag     = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
-	addCompletor = prefixCompletor[[]string](".[^ ]")
-	filesArg     = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor)
+	mainFlag        = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
+	addCompletor    = prefixCompletor[[]string](".[^ ]")
+	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor)
+	statusCompletor = prefixCompletor[[]string]("..")
+	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompletor)
 )
 
 func GitCLI() sourcerer.CLI {
@@ -34,24 +36,24 @@ func GitCLI() sourcerer.CLI {
 
 func GitAliasers() sourcerer.Option {
 	return sourcerer.Aliasers(map[string][]string{
-		"gp":   []string{"g", "p"},
-		"gpl":  []string{"g", "pl"},
-		"gs":   []string{"g", "s"},
-		"guco": []string{"g", "uco"},
-		"gb":   []string{"g", "b"},
-		"gc":   []string{"g", "c"},
-		"gcnv": []string{"g", "c", "-n"},
-		"cm":   []string{"g", "m"},
-		"gcb":  []string{"g", "cb"},
-		"gmm":  []string{"g", "mm"},
-		"mm":   []string{"g", "mm"},
-		"gcp":  []string{"g", "cp"},
-		"gd":   []string{"g", "d"},
-		"gdm":  []string{"g", "d", "-m"},
-		"ga":   []string{"g", "a"},
-		"guc":  []string{"g", "uc"},
-		"gua":  []string{"g", "ua"},
-		"ch":   []string{"g", "ch"},
+		"gp":   {"g", "p"},
+		"gpl":  {"g", "pl"},
+		"gs":   {"g", "s"},
+		"guco": {"g", "uco"},
+		"gb":   {"g", "b"},
+		"gc":   {"g", "c"},
+		"gcnv": {"g", "c", "-n"},
+		"cm":   {"g", "m"},
+		"gcb":  {"g", "cb"},
+		"gmm":  {"g", "mm"},
+		"mm":   {"g", "mm"},
+		"gcp":  {"g", "cp"},
+		"gd":   {"g", "d"},
+		"gdm":  {"g", "d", "-m"},
+		"ga":   {"g", "a"},
+		"guc":  {"g", "uc"},
+		"gua":  {"g", "ua"},
+		"ch":   {"g", "ch"},
 	})
 }
 
@@ -154,11 +156,6 @@ func (g *git) Node() *command.Node {
 		"pp": command.SerialNodes(
 			command.Description("Pull and push"),
 			command.SimpleExecutableNode("git pull && git push"),
-		),
-
-		"s": command.SerialNodes(
-			command.Description("Status"),
-			command.SimpleExecutableNode("git status"),
 		),
 		"uco": command.SerialNodes(
 			command.Description("Undo commit"),
@@ -268,6 +265,15 @@ func (g *git) Node() *command.Node {
 			}),
 		),
 
+		// Status
+		"s": command.SerialNodes(
+			command.Description("Status"),
+			statusFilesArg,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				return []string{fmt.Sprintf("git status %s", strings.Join(statusFilesArg.Get(d), " "))}, nil
+			}),
+		),
+
 		// Add
 		"a": command.SerialNodes(
 			command.Description("Add"),
@@ -281,6 +287,6 @@ func (g *git) Node() *command.Node {
 			}),
 		),
 	}, nil, command.BranchSynonyms(map[string][]string{
-		"l": []string{"pl"},
+		"l": {"pl"},
 	}))
 }
