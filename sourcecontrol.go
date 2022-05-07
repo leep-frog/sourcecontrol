@@ -90,39 +90,31 @@ func filesWithPrefix(prefixCode string) ([]string, error) {
 	}).Run(nil)
 }
 
-func prefixCompletor[T any](prefixCode string) *command.Completor[T] {
-	return &command.Completor[T]{
-		Distinct: true,
-		Fetcher: command.SimpleFetcher(func(T, *command.Data) (*command.Completion, error) {
-			results, err := filesWithPrefix(prefixCode)
-			if err != nil {
-				return nil, err
-			}
-			return &command.Completion{
-				Suggestions: results,
-			}, nil
-		}),
-	}
+func prefixCompletor[T any](prefixCode string) command.Completor[T] {
+	return command.CompletorFromFunc(func(T, *command.Data) (*command.Completion, error) {
+		results, err := filesWithPrefix(prefixCode)
+		if err != nil {
+			return nil, err
+		}
+		return &command.Completion{
+			Distinct:    true,
+			Suggestions: results,
+		}, nil
+	})
 }
 
 func (g *git) Node() *command.Node {
 	diffArgs := command.ListArg[string](
 		"FILE", "Files to diff",
 		0, command.UnboundedList,
-		&command.Completor[[]string]{
-			Fetcher:  command.BashFetcher[[]string]("git diff --name-only --relative"),
-			Distinct: true,
-		},
+		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --name-only --relative"),
 	)
 
 	uaArgs := command.ListArg[string](
 		"FILE", "Files to un-add",
 		1, command.UnboundedList,
 		// prefixCompletor[[]string]("[^ ]."),
-		&command.Completor[[]string]{
-			Fetcher:  command.BashFetcher[[]string]("git diff --cached --name-only --relative"),
-			Distinct: true,
-		},
+		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --cached --name-only --relative"),
 	)
 
 	ucArgs := command.ListArg[string](
