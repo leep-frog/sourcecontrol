@@ -54,6 +54,7 @@ func GitAliasers() sourcerer.Option {
 		"guc":  {"g", "uc"},
 		"gua":  {"g", "ua"},
 		"ch":   {"g", "ch"},
+		"gsh":  {"g", "sh"},
 	})
 }
 
@@ -148,6 +149,10 @@ func (g *git) Node() *command.Node {
 		"pp": command.SerialNodes(
 			command.Description("Pull and push"),
 			command.SimpleExecutableNode("git pull && git push"),
+		),
+		"sh": command.SerialNodes(
+			command.Description("Create ssh-agent"),
+			command.SimpleExecutableNode("eval `ssh-agent` && ssh-add"),
 		),
 		"uco": command.SerialNodes(
 			command.Description("Undo commit"),
