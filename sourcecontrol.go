@@ -2,7 +2,6 @@ package sourcecontrol
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/leep-frog/command"
@@ -24,19 +23,13 @@ var (
 		"Branch",
 		command.BashCompletor[string](`git branch | grep -v "\*"`),
 	)
-	mainFlag        = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
-	addCompletor    = prefixCompletor[[]string](".[^ ]")
-	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor)
-	statusCompletor = prefixCompletor[[]string]("..")
-	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompletor)
+	mainFlag          = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
+	addCompletor      = prefixCompletor[[]string](".[^ ]")
+	filesArg          = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor)
+	statusCompletor   = prefixCompletor[[]string]("..")
+	statusFilesArg    = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompletor)
+	defaultBranchNode = command.NewBashCommand("BASH", []string{"git ls-remote --heads | awk '{ print $2 }' | xargs basename"}, command.HideStderr[string]())
 )
-
-func DefaultBranch() string {
-	if b, ok := os.LookupEnv("LEEP_DEFAULT_GIT_BRANCH"); ok {
-		return b
-	}
-	return "main"
-}
 
 func GitCLI() sourcerer.CLI {
 	return &git{}
@@ -145,11 +138,21 @@ func (g *git) Node() *command.Node {
 		),
 		"m": command.SerialNodes(
 			command.Description("Checkout main"),
-			command.SimpleExecutableNode(fmt.Sprintf("git checkout %s", DefaultBranch())),
+			defaultBranchNode,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				return []string{
+					fmt.Sprintf("git checkout %s", defaultBranchNode.Get(d)),
+				}, nil
+			}),
 		),
 		"mm": command.SerialNodes(
 			command.Description("Merge main"),
-			command.SimpleExecutableNode(fmt.Sprintf("git merge %s", DefaultBranch())),
+			defaultBranchNode,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				return []string{
+					fmt.Sprintf("git merge %s", defaultBranchNode.Get(d)),
+				}, nil
+			}),
 		),
 		"p": command.SerialNodes(
 			command.Description("Push"),
@@ -260,10 +263,11 @@ func (g *git) Node() *command.Node {
 			command.Description("Diff"),
 			command.NewFlagNode(mainFlag),
 			diffArgs,
+			defaultBranchNode,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				branch := "--"
 				if mainFlag.Get(d) {
-					branch = DefaultBranch()
+					branch = defaultBranchNode.Get(d)
 				}
 				return []string{
 					fmt.Sprintf("git diff %s %s", branch, strings.Join(diffArgs.Get(d), " ")),
