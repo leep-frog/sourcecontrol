@@ -2,6 +2,7 @@ package sourcecontrol
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/leep-frog/command"
@@ -29,6 +30,13 @@ var (
 	statusCompletor = prefixCompletor[[]string]("..")
 	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompletor)
 )
+
+func DefaultBranch() string {
+	if b, ok := os.LookupEnv("LEEP_DEFAULT_GIT_BRANCH"); ok {
+		return b
+	}
+	return "main"
+}
 
 func GitCLI() sourcerer.CLI {
 	return &git{}
@@ -137,11 +145,11 @@ func (g *git) Node() *command.Node {
 		),
 		"m": command.SerialNodes(
 			command.Description("Checkout main"),
-			command.SimpleExecutableNode("git checkout main"),
+			command.SimpleExecutableNode(fmt.Sprintf("git checkout %s", DefaultBranch())),
 		),
 		"mm": command.SerialNodes(
 			command.Description("Merge main"),
-			command.SimpleExecutableNode("git merge main"),
+			command.SimpleExecutableNode(fmt.Sprintf("git merge %s", DefaultBranch())),
 		),
 		"p": command.SerialNodes(
 			command.Description("Push"),
@@ -255,7 +263,7 @@ func (g *git) Node() *command.Node {
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				branch := "--"
 				if mainFlag.Get(d) {
-					branch = "main"
+					branch = DefaultBranch()
 				}
 				return []string{
 					fmt.Sprintf("git diff %s %s", branch, strings.Join(diffArgs.Get(d), " ")),
