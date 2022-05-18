@@ -179,7 +179,29 @@ func (g *git) Node() *command.Node {
 					r = append(r, "&& git push")
 				}
 				r = append(r, "&& echo Success!")
-				//if d.Bool(pushFlag.Name())
+				return []string{strings.Join(r, " ")}, nil
+			})),
+		),
+
+		// Squash
+		"q": command.CacheNode(commitCacheKey, g, command.SerialNodes(
+			command.Description("Squash local commits"),
+			command.NewFlagNode(
+				nvFlag,
+				pushFlag,
+			),
+			messageArg,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				r := []string{
+					fmt.Sprintf("git reset --soft HEAD~3 && git commit -m %q", strings.Join(messageArg.Get(d), " ")),
+				}
+				if nvFlag.Get(d) {
+					r = append(r, " --no-verify")
+				}
+				if pushFlag.Get(d) {
+					r = append(r, "&& git push")
+				}
+				r = append(r, "&& echo Success!")
 				return []string{strings.Join(r, " ")}, nil
 			})),
 		),
