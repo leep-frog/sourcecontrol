@@ -71,7 +71,9 @@ type git struct {
 	changed       bool
 }
 
-func (*git) Changed() bool   { return false }
+func (g *git) Changed() bool {
+	return g.changed
+}
 func (*git) Setup() []string { return nil }
 func (*git) Name() string {
 	return "g"
