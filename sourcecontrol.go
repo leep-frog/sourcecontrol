@@ -170,6 +170,14 @@ func (g *git) Node() *command.Node {
 		// Configs
 		"cfg": command.SerialNodesTo(command.BranchNode(map[string]*command.Node{
 			"main": command.BranchNode(map[string]*command.Node{
+				"show": command.SerialNodes(
+					command.ExecutorNode(func(o command.Output, d *command.Data) {
+						o.Stdoutf("Global main: %s", g.DefaultBranch)
+						for k, v := range g.MainBranches {
+							o.Stdoutf("%s: %s", k, v)
+						}
+					}),
+				),
 				"set": command.SerialNodes(
 					command.NewFlagNode(globalConfig),
 					repoName,
@@ -177,10 +185,10 @@ func (g *git) Node() *command.Node {
 					command.ExecutorNode(func(o command.Output, d *command.Data) {
 						if globalConfig.Get(d) {
 							g.DefaultBranch = defRepoArg.Get(d)
-							g.changed = true
 						} else {
 							g.setDefualtBranch(o, d, defRepoArg.Get(d))
 						}
+						g.changed = true
 					}),
 				),
 				"unset": command.SerialNodes(
@@ -188,10 +196,10 @@ func (g *git) Node() *command.Node {
 					command.ExecutorNode(func(o command.Output, d *command.Data) {
 						if globalConfig.Get(d) {
 							g.DefaultBranch = ""
-							g.changed = true
 						} else {
 							g.unsetDefualtBranch(o, d)
 						}
+						g.changed = true
 					}),
 				),
 			}, nil),
