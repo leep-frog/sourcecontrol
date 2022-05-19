@@ -23,12 +23,13 @@ var (
 		"Branch",
 		command.BashCompletor[string](`git branch | grep -v "\*"`),
 	)
-	mainFlag          = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
-	addCompletor      = prefixCompletor[[]string](".[^ ]")
-	filesArg          = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor)
-	statusCompletor   = prefixCompletor[[]string]("..")
-	statusFilesArg    = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompletor)
-	defaultBranchNode = command.NewBashCommand("BASH", []string{"git ls-remote --heads | awk '{ print $2 }' | xargs basename"}, command.HideStderr[string]())
+	mainFlag        = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
+	addCompletor    = prefixCompletor[[]string](".[^ ]")
+	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor)
+	statusCompletor = prefixCompletor[[]string]("..")
+	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompletor)
+	repoName        = command.NewBashCommand[string]("REPO", []string{"git rev-parse --show-toplevel | xargs basename"})
+	defRepoArg      = command.Arg[string]("DEFAULT_BRANCH", "Default branch for this git repo")
 )
 
 func GitCLI() sourcerer.CLI {
@@ -61,8 +62,9 @@ func GitAliasers() sourcerer.Option {
 }
 
 type git struct {
-	Caches  map[string][][]string
-	changed bool
+	Caches       map[string][][]string
+	MainBranches map[string]string
+	changed      bool
 }
 
 func (*git) Changed() bool   { return false }
@@ -76,6 +78,38 @@ func (g *git) Cache() map[string][][]string {
 		g.Caches = map[string][][]string{}
 	}
 	return g.Caches
+}
+
+const (
+	DefaultBranch = "main"
+)
+
+func (g *git) defualtBranch(d *command.Data) string {
+	if g.MainBranches == nil {
+		return DefaultBranch
+	}
+	if m, ok := g.MainBranches[repoName.Get(d)]; ok {
+		return m
+	}
+	return DefaultBranch
+}
+
+func (g *git) setDefualtBranch(o command.Output, d *command.Data, v string) {
+	if g.MainBranches == nil {
+		g.MainBranches = map[string]string{}
+	}
+	rn := repoName.Get(d)
+	g.MainBranches[rn] = v
+	o.Stdoutf("Setting default branch for %s to %s", rn, v)
+}
+
+func (g *git) unsetDefualtBranch(o command.Output, d *command.Data) {
+	if g.MainBranches == nil {
+		return
+	}
+	rn := repoName.Get(d)
+	delete(g.MainBranches, rn)
+	o.Stdoutf("Deleting default branch for %s", rn)
 }
 
 func (g *git) MarkChanged() {
@@ -127,6 +161,25 @@ func (g *git) Node() *command.Node {
 	)
 
 	return command.BranchNode(map[string]*command.Node{
+		// Configs
+		"cfg": command.SerialNodesTo(command.BranchNode(map[string]*command.Node{
+			"main": command.BranchNode(map[string]*command.Node{
+				"set": command.SerialNodes(
+					repoName,
+					defRepoArg,
+					command.ExecutorNode(func(o command.Output, d *command.Data) {
+						g.setDefualtBranch(o, d, defRepoArg.Get(d))
+					}),
+				),
+				"unset": command.SerialNodes(
+					repoName,
+					command.ExecutorNode(func(o command.Output, d *command.Data) {
+						g.unsetDefualtBranch(o, d)
+					}),
+				),
+			}, nil),
+		}, nil), command.Description("Config settings")),
+
 		// Simple commands
 		"b": command.SerialNodes(
 			command.Description("Branch"),
@@ -138,19 +191,19 @@ func (g *git) Node() *command.Node {
 		),
 		"m": command.SerialNodes(
 			command.Description("Checkout main"),
-			defaultBranchNode,
+			repoName,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				return []string{
-					fmt.Sprintf("git checkout %s", defaultBranchNode.Get(d)),
+					fmt.Sprintf("git checkout %s", g.defualtBranch(d)),
 				}, nil
 			}),
 		),
 		"mm": command.SerialNodes(
 			command.Description("Merge main"),
-			defaultBranchNode,
+			repoName,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				return []string{
-					fmt.Sprintf("git merge %s", defaultBranchNode.Get(d)),
+					fmt.Sprintf("git merge %s", g.defualtBranch(d)),
 				}, nil
 			}),
 		),
@@ -263,11 +316,11 @@ func (g *git) Node() *command.Node {
 			command.Description("Diff"),
 			command.NewFlagNode(mainFlag),
 			diffArgs,
-			defaultBranchNode,
+			repoName,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				branch := "--"
 				if mainFlag.Get(d) {
-					branch = defaultBranchNode.Get(d)
+					branch = g.defualtBranch(d)
 				}
 				return []string{
 					fmt.Sprintf("git diff %s %s", branch, strings.Join(diffArgs.Get(d), " ")),
