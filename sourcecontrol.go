@@ -30,6 +30,7 @@ var (
 	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompletor)
 	repoName        = command.NewBashCommand[string]("REPO", []string{"git rev-parse --show-toplevel | xargs basename"})
 	defRepoArg      = command.Arg[string]("DEFAULT_BRANCH", "Default branch for this git repo")
+	forceDelete     = command.BoolFlag("force-delete", 'f', "force delete the branch")
 )
 
 func GitCLI() sourcerer.CLI {
@@ -58,6 +59,7 @@ func GitAliasers() sourcerer.Option {
 		"ch":   {"g", "ch"},
 		"gsh":  {"g", "sh"},
 		"sq":   {"g", "q"},
+		"gbd":  {"g", "bd"},
 	})
 }
 
@@ -296,6 +298,22 @@ func (g *git) Node() *command.Node {
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				return []string{
 					fmt.Sprintf("git checkout -b %s", branchArg.Get(d)),
+				}, nil
+			}),
+		),
+
+		// Delete branch
+		"bd": command.SerialNodes(
+			command.Description("Delete branch"),
+			command.NewFlagNode(forceDelete),
+			branchArg,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				flag := "-d"
+				if forceDelete.Get(d) {
+					flag = "-D"
+				}
+				return []string{
+					fmt.Sprintf("git branch %s %s", flag, branchArg.Get(d)),
 				}, nil
 			}),
 		),
