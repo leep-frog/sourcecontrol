@@ -31,6 +31,7 @@ var (
 	repoName        = command.NewBashCommand[string]("REPO", []string{"git rev-parse --show-toplevel | xargs basename"})
 	defRepoArg      = command.Arg[string]("DEFAULT_BRANCH", "Default branch for this git repo")
 	forceDelete     = command.BoolFlag("force-delete", 'f', "force delete the branch")
+	globalConfig    = command.BoolFlag("global", 'g', "Whether or not to change the global setting")
 )
 
 func GitCLI() sourcerer.CLI {
@@ -64,9 +65,10 @@ func GitAliasers() sourcerer.Option {
 }
 
 type git struct {
-	Caches       map[string][][]string
-	MainBranches map[string]string
-	changed      bool
+	Caches        map[string][][]string
+	MainBranches  map[string]string
+	DefaultBranch string
+	changed       bool
 }
 
 func (*git) Changed() bool   { return false }
@@ -82,18 +84,20 @@ func (g *git) Cache() map[string][][]string {
 	return g.Caches
 }
 
-const (
-	DefaultBranch = "main"
-)
-
 func (g *git) defualtBranch(d *command.Data) string {
 	if g.MainBranches == nil {
-		return DefaultBranch
+		if len(g.DefaultBranch) == 0 {
+			return "main"
+		}
+		return g.DefaultBranch
 	}
 	if m, ok := g.MainBranches[repoName.Get(d)]; ok {
 		return m
 	}
-	return DefaultBranch
+	if len(g.DefaultBranch) == 0 {
+		return "main"
+	}
+	return g.DefaultBranch
 }
 
 func (g *git) setDefualtBranch(o command.Output, d *command.Data, v string) {
@@ -167,16 +171,27 @@ func (g *git) Node() *command.Node {
 		"cfg": command.SerialNodesTo(command.BranchNode(map[string]*command.Node{
 			"main": command.BranchNode(map[string]*command.Node{
 				"set": command.SerialNodes(
+					command.NewFlagNode(globalConfig),
 					repoName,
 					defRepoArg,
 					command.ExecutorNode(func(o command.Output, d *command.Data) {
-						g.setDefualtBranch(o, d, defRepoArg.Get(d))
+						if globalConfig.Get(d) {
+							g.DefaultBranch = defRepoArg.Get(d)
+							g.changed = true
+						} else {
+							g.setDefualtBranch(o, d, defRepoArg.Get(d))
+						}
 					}),
 				),
 				"unset": command.SerialNodes(
 					repoName,
 					command.ExecutorNode(func(o command.Output, d *command.Data) {
-						g.unsetDefualtBranch(o, d)
+						if globalConfig.Get(d) {
+							g.DefaultBranch = ""
+							g.changed = true
+						} else {
+							g.unsetDefualtBranch(o, d)
+						}
 					}),
 				),
 			}, nil),
