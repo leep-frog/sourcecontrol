@@ -170,42 +170,45 @@ func (g *git) Node() *command.Node {
 
 	return command.BranchNode(map[string]*command.Node{
 		// Configs
-		"cfg": command.SerialNodesTo(command.BranchNode(map[string]*command.Node{
-			"main": command.BranchNode(map[string]*command.Node{
-				"show": command.SerialNodes(
-					command.ExecutorNode(func(o command.Output, d *command.Data) {
-						o.Stdoutf("Global main: %s", g.DefaultBranch)
-						for k, v := range g.MainBranches {
-							o.Stdoutf("%s: %s", k, v)
-						}
-					}),
-				),
-				"set": command.SerialNodes(
-					command.NewFlagNode(globalConfig),
-					repoName,
-					defRepoArg,
-					command.ExecutorNode(func(o command.Output, d *command.Data) {
-						if globalConfig.Get(d) {
-							g.DefaultBranch = defRepoArg.Get(d)
-						} else {
-							g.setDefualtBranch(o, d, defRepoArg.Get(d))
-						}
-						g.changed = true
-					}),
-				),
-				"unset": command.SerialNodes(
-					repoName,
-					command.ExecutorNode(func(o command.Output, d *command.Data) {
-						if globalConfig.Get(d) {
-							g.DefaultBranch = ""
-						} else {
-							g.unsetDefualtBranch(o, d)
-						}
-						g.changed = true
-					}),
-				),
+		"cfg": command.SerialNodes(
+			command.Description("Config settings"),
+			command.BranchNode(map[string]*command.Node{
+				"main": command.BranchNode(map[string]*command.Node{
+					"show": command.SerialNodes(
+						command.ExecutorNode(func(o command.Output, d *command.Data) {
+							o.Stdoutf("Global main: %s", g.DefaultBranch)
+							for k, v := range g.MainBranches {
+								o.Stdoutf("%s: %s", k, v)
+							}
+						}),
+					),
+					"set": command.SerialNodes(
+						command.NewFlagNode(globalConfig),
+						repoName,
+						defRepoArg,
+						command.ExecutorNode(func(o command.Output, d *command.Data) {
+							if globalConfig.Get(d) {
+								g.DefaultBranch = defRepoArg.Get(d)
+							} else {
+								g.setDefualtBranch(o, d, defRepoArg.Get(d))
+							}
+							g.changed = true
+						}),
+					),
+					"unset": command.SerialNodes(
+						repoName,
+						command.ExecutorNode(func(o command.Output, d *command.Data) {
+							if globalConfig.Get(d) {
+								g.DefaultBranch = ""
+							} else {
+								g.unsetDefualtBranch(o, d)
+							}
+							g.changed = true
+						}),
+					),
+				}, nil),
 			}, nil),
-		}, nil), command.Description("Config settings")),
+		),
 
 		// Simple commands
 		"b": command.SerialNodes(
