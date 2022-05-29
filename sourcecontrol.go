@@ -128,20 +128,20 @@ func (g *git) MarkChanged() {
 	g.changed = true
 }
 
-func filesWithPrefix(prefixCode string) ([]string, error) {
-	return command.NewBashCommand[[]string]("opts", []string{
+func PrefixCompletorScript(prefixCode string) []string {
+	return []string{
 		fmt.Sprintf(`results="$(git status --porcelain | grep "%s" | cut -c 4-)";`, prefixCode),
 		`toplevel="$(git rev-parse --show-toplevel)";`,
 		`for git_path in $results;`,
 		`do`,
 		`    realpath --relative-to="." "$toplevel/$git_path";`,
 		`done;`,
-	}).Run(nil)
+	}
 }
 
 func PrefixCompletor[T any](prefixCode string) command.Completor[T] {
 	return command.CompletorFromFunc(func(T, *command.Data) (*command.Completion, error) {
-		results, err := filesWithPrefix(prefixCode)
+		results, err := command.NewBashCommand[[]string]("opts", PrefixCompletorScript(prefixCode)).Run(nil)
 		if err != nil {
 			return nil, err
 		}
