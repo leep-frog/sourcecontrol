@@ -14,6 +14,10 @@ const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
 )
 
+func BranchCompletor() command.Completor[string] {
+	return command.BashCompletor[string](`git branch | grep -v "\*"`)
+}
+
 var (
 	nvFlag     = command.BoolFlag("no-verify", 'n', "Whether or not to run pre-commit checks")
 	pushFlag   = command.BoolFlag("push", 'p', "Whether or not to push afterwards")
@@ -21,12 +25,12 @@ var (
 	branchArg  = command.Arg[string](
 		"BRANCH",
 		"Branch",
-		command.BashCompletor[string](`git branch | grep -v "\*"`),
+		BranchCompletor(),
 	)
 	mainFlag        = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
-	addCompletor    = prefixCompletor[[]string](".[^ ]")
+	addCompletor    = PrefixCompletor[[]string](".[^ ]")
 	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor)
-	statusCompletor = prefixCompletor[[]string]("..")
+	statusCompletor = PrefixCompletor[[]string]("..")
 	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompletor)
 	repoName        = command.NewBashCommand[string]("REPO", []string{"git rev-parse --show-toplevel | xargs basename"})
 	defRepoArg      = command.Arg[string]("DEFAULT_BRANCH", "Default branch for this git repo")
@@ -135,7 +139,7 @@ func filesWithPrefix(prefixCode string) ([]string, error) {
 	}).Run(nil)
 }
 
-func prefixCompletor[T any](prefixCode string) command.Completor[T] {
+func PrefixCompletor[T any](prefixCode string) command.Completor[T] {
 	return command.CompletorFromFunc(func(T, *command.Data) (*command.Completion, error) {
 		results, err := filesWithPrefix(prefixCode)
 		if err != nil {
@@ -158,14 +162,14 @@ func (g *git) Node() *command.Node {
 	uaArgs := command.ListArg[string](
 		"FILE", "Files to un-add",
 		1, command.UnboundedList,
-		// prefixCompletor[[]string]("[^ ]."),
+		// PrefixCompletor[[]string]("[^ ]."),
 		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --cached --name-only --relative"),
 	)
 
 	ucArgs := command.ListArg[string](
 		"FILE", "Files to un-change",
 		1, command.UnboundedList,
-		prefixCompletor[[]string](".[^ ]"),
+		PrefixCompletor[[]string](".[^ ]"),
 	)
 
 	return command.BranchNode(map[string]*command.Node{
