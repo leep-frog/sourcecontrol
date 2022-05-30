@@ -146,8 +146,9 @@ func PrefixCompletor[T any](prefixCode string) command.Completor[T] {
 			return nil, err
 		}
 		return &command.Completion{
-			Distinct:    true,
-			Suggestions: results,
+			Distinct:        true,
+			Suggestions:     results,
+			CaseInsensitive: true,
 		}, nil
 	})
 }
