@@ -42,6 +42,17 @@ func TestExecution(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "fetch",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"f"},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						"git fetch",
+					},
+				},
+			},
+		},
 		// Git log
 		{
 			name: "git log with no args",

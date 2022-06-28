@@ -250,6 +250,10 @@ func (g *git) Node() *command.Node {
 			command.Description("Undo commit"),
 			command.SimpleExecutableNode("git reset HEAD~"),
 		),
+		"f": command.SerialNodes(
+			command.Description("Git fetch"),
+			command.SimpleExecutableNode("git fetch"),
+		),
 
 		// Complex commands
 		// Git log
