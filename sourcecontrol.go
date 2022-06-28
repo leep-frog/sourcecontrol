@@ -49,12 +49,12 @@ var (
 		0, command.UnboundedList,
 		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --name-only --relative"),
 	)
-
 	ucArgs = command.ListArg[string](
 		"FILE", "Files to un-change",
 		1, command.UnboundedList,
 		PrefixCompletor[[]string](".[^ ]"),
 	)
+	gitLogArg = command.OptionalArg[int]("N", "Number of git logs to display", command.Positive[int](), command.Default(1))
 )
 
 func CLI() *git {
@@ -84,6 +84,7 @@ func GitAliasers() sourcerer.Option {
 		"gsh":  {"g", "sh"},
 		"sq":   {"g", "q"},
 		"gbd":  {"g", "bd"},
+		"glg":  {"g", "lg"},
 	})
 }
 
@@ -251,6 +252,16 @@ func (g *git) Node() *command.Node {
 		),
 
 		// Complex commands
+		// Git log
+		"lg": command.SerialNodes(
+			command.Description("Git log"),
+			gitLogArg,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				return []string{
+					fmt.Sprintf("git log -n %d", gitLogArg.Get(d)),
+				}, nil
+			}),
+		),
 		// Checkout main
 		"m": command.SerialNodes(
 			command.Description("Checkout main"),

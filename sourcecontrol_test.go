@@ -42,6 +42,35 @@ func TestExecution(t *testing.T) {
 				},
 			},
 		},
+		// Git log
+		{
+			name: "git log with no args",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"lg"},
+				WantData: &command.Data{Values: map[string]interface{}{
+					gitLogArg.Name(): 1,
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						"git log -n 1",
+					},
+				},
+			},
+		},
+		{
+			name: "git log with arg",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"lg", "4"},
+				WantData: &command.Data{Values: map[string]interface{}{
+					gitLogArg.Name(): 4,
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						"git log -n 4",
+					},
+				},
+			},
+		},
 		// Checkout main
 		{
 			name: "checkout main",
