@@ -12,6 +12,7 @@ import (
 
 const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
+	createSSHAgent = "ps -p $SSH_AGENT_PID > /dev/null || eval `ssh-agent` && ssh-add"
 )
 
 func BranchCompletor() command.Completor[string] {
@@ -36,9 +37,10 @@ var (
 	defRepoArg      = command.Arg[string]("DEFAULT_BRANCH", "Default branch for this git repo")
 	forceDelete     = command.BoolFlag("force-delete", 'f', "force delete the branch")
 	globalConfig    = command.BoolFlag("global", 'g', "Whether or not to change the global setting")
+	newBranchFlag   = command.BoolFlag("new-branch", 'n', "Whether or not to checkout a new branch")
 )
 
-func GitCLI() sourcerer.CLI {
+func CLI() *git {
 	return &git{}
 }
 
@@ -222,8 +224,36 @@ func (g *git) Node() *command.Node {
 		),
 		"l": command.SerialNodes(
 			command.Description("Pull"),
-			command.SimpleExecutableNode("git pull"),
+			command.SimpleExecutableNode(
+				createSSHAgent,
+				"git pull",
+			),
 		),
+		"p": command.SerialNodes(
+			command.Description("Push"),
+			command.SimpleExecutableNode(
+				createSSHAgent,
+				"git push",
+			),
+		),
+		"pp": command.SerialNodes(
+			command.Description("Pull and push"),
+			command.SimpleExecutableNode(
+				createSSHAgent,
+				"git pull && git push",
+			),
+		),
+		"sh": command.SerialNodes(
+			command.Description("Create ssh-agent"),
+			command.SimpleExecutableNode(createSSHAgent),
+		),
+		"uco": command.SerialNodes(
+			command.Description("Undo commit"),
+			command.SimpleExecutableNode("git reset HEAD~"),
+		),
+
+		// Complex commands
+		// Checkout main
 		"m": command.SerialNodes(
 			command.Description("Checkout main"),
 			repoName,
@@ -233,6 +263,7 @@ func (g *git) Node() *command.Node {
 				}, nil
 			}),
 		),
+		// Merge main
 		"mm": command.SerialNodes(
 			command.Description("Merge main"),
 			repoName,
@@ -242,26 +273,8 @@ func (g *git) Node() *command.Node {
 				}, nil
 			}),
 		),
-		"p": command.SerialNodes(
-			command.Description("Push"),
-			command.SimpleExecutableNode("git push"),
-		),
-		"pp": command.SerialNodes(
-			command.Description("Pull and push"),
-			command.SimpleExecutableNode("git pull && git push"),
-		),
-		"sh": command.SerialNodes(
-			command.Description("Create ssh-agent"),
-			command.SimpleExecutableNode("eval `ssh-agent` && ssh-add"),
-		),
-		"uco": command.SerialNodes(
-			command.Description("Undo commit"),
-			command.SimpleExecutableNode("git reset HEAD~"),
-		),
-
-		// Complex commands
 		// Commit
-		"c": command.CacheNode(commitCacheKey, g, command.SerialNodes(
+		"c": command.SerialNodes(
 			command.Description("Commit"),
 			command.NewFlagNode(
 				nvFlag,
@@ -269,18 +282,44 @@ func (g *git) Node() *command.Node {
 			),
 			messageArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				r := []string{
-					fmt.Sprintf("git commit -m %q", strings.Join(messageArg.Get(d), " ")),
-				}
+				var nv string
 				if nvFlag.Get(d) {
-					r = append(r, " --no-verify")
+					nv = "--no-verify"
+				}
+				r := []string{
+					fmt.Sprintf("git commit -m %s %q", nv, strings.Join(messageArg.Get(d), " ")),
 				}
 				if pushFlag.Get(d) {
-					r = append(r, "&& git push")
+					r = append(r,
+						createSSHAgent,
+						"git push",
+					)
 				}
-				r = append(r, "&& echo Success!")
-				return []string{strings.Join(r, " ")}, nil
-			})),
+				r = append(r, "echo Success!")
+				return r, nil
+			}),
+		),
+
+		// Commit & push
+		"cp": command.SerialNodes(
+			command.Description("Commit and push"),
+			command.NewFlagNode(
+				nvFlag,
+			),
+			messageArg,
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				var nv string
+				if nvFlag.Get(d) {
+					nv = "--no-verify"
+				}
+				r := fmt.Sprintf("git commit -m %s %q", nv, strings.Join(messageArg.Get(d), " "))
+				return []string{
+					r,
+					createSSHAgent,
+					"git push",
+					"echo Success!",
+				}, nil
+			}),
 		),
 
 		// Squash
@@ -306,31 +345,20 @@ func (g *git) Node() *command.Node {
 			})),
 		),
 
-		// Commit & push
-		"cp": command.SerialNodes(
-			command.Description("Commit and push"),
-			command.NewFlagNode(
-				nvFlag,
-			),
-			messageArg,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				r := []string{
-					fmt.Sprintf("git commit -m %q", strings.Join(messageArg.Get(d), " ")),
-				}
-				if nvFlag.Get(d) {
-					r = append(r, "--no-verify")
-				}
-				return []string{strings.Join(append(r, "&& git push"), " ")}, nil
-			}),
-		),
-
-		// Checkout new branch
-		"cb": command.SerialNodes(
+		// Checkout branch
+		"ch": command.SerialNodes(
 			command.Description("Checkout new branch"),
+			command.NewFlagNode(
+				newBranchFlag,
+			),
 			branchArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				flag := ""
+				if newBranchFlag.Get(d) {
+					flag = "-b "
+				}
 				return []string{
-					fmt.Sprintf("git checkout -b %s", branchArg.Get(d)),
+					fmt.Sprintf("git checkout %s%s", flag, branchArg.Get(d)),
 				}, nil
 			}),
 		),
@@ -347,17 +375,6 @@ func (g *git) Node() *command.Node {
 				}
 				return []string{
 					fmt.Sprintf("git branch %s %s", flag, branchArg.Get(d)),
-				}, nil
-			}),
-		),
-
-		// Change/Checkout branch
-		"ch": command.SerialNodes(
-			command.Description("Checkout existing branch"),
-			branchArg,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				return []string{
-					fmt.Sprintf("git checkout %s", branchArg.Get(d)),
 				}, nil
 			}),
 		),
