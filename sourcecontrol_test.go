@@ -399,6 +399,176 @@ func TestExecution(t *testing.T) {
 				},
 			},
 		},
+		// Undo add
+		{
+			name: "undo requires args",
+			etc: &command.ExecuteTestCase{
+				Args:       []string{"ua"},
+				WantStderr: []string{`Argument "FILE" requires at least 1 argument, got 0`},
+				WantErr:    fmt.Errorf(`Argument "FILE" requires at least 1 argument, got 0`),
+			},
+		},
+		{
+			name: "undo resets files",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"ua", "file.one", "some/where/file.2"},
+				WantData: &command.Data{Values: map[string]interface{}{
+					uaArgs.Name(): []string{
+						"file.one",
+						"some/where/file.2",
+					},
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git reset file.one some/where/file.2`,
+					},
+				},
+			},
+		},
+		// Undo change
+		{
+			name: "undo change requires args",
+			etc: &command.ExecuteTestCase{
+				Args:       []string{"uc"},
+				WantStderr: []string{`Argument "FILE" requires at least 1 argument, got 0`},
+				WantErr:    fmt.Errorf(`Argument "FILE" requires at least 1 argument, got 0`),
+			},
+		},
+		{
+			name: "undo change undoes changed files",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"uc", "file.one", "some/where/file.2"},
+				WantData: &command.Data{Values: map[string]interface{}{
+					ucArgs.Name(): []string{
+						"file.one",
+						"some/where/file.2",
+					},
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git checkout -- file.one some/where/file.2`,
+					},
+				},
+			},
+		},
+		// Status
+		{
+			name: "status with no args",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"s"},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git status `,
+					},
+				},
+			},
+		},
+		{
+			name: "status with args args",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"s", "file.one", "some/where/file.2"},
+				WantData: &command.Data{Values: map[string]interface{}{
+					filesArg.Name(): []string{
+						"file.one",
+						"some/where/file.2",
+					},
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git status file.one some/where/file.2`,
+					},
+				},
+			},
+		},
+		// Add
+		{
+			name: "add with no args",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"a"},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git add .`,
+					},
+				},
+			},
+		},
+		{
+			name: "add with args args",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"a", "file.one", "some/where/file.2"},
+				WantData: &command.Data{Values: map[string]interface{}{
+					filesArg.Name(): []string{
+						"file.one",
+						"some/where/file.2",
+					},
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git add file.one some/where/file.2`,
+					},
+				},
+			},
+		},
+		// Diff
+		{
+			name: "diff with no args",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"d"},
+				RunResponses: []*command.FakeRun{{
+					Stdout: []string{"test-repo"},
+				}},
+				WantRunContents: [][]string{repoRunContents()},
+				WantData: &command.Data{Values: map[string]interface{}{
+					repoName.Name(): "test-repo",
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git diff -- `,
+					},
+				},
+			},
+		},
+		{
+			name: "diff with args",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"d", "this.file", "that/file/txt"},
+				RunResponses: []*command.FakeRun{{
+					Stdout: []string{"test-repo"},
+				}},
+				WantRunContents: [][]string{repoRunContents()},
+				WantData: &command.Data{Values: map[string]interface{}{
+					repoName.Name(): "test-repo",
+					diffArgs.Name(): []string{
+						"this.file",
+						"that/file/txt",
+					},
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git diff -- this.file that/file/txt`,
+					},
+				},
+			},
+		},
+		{
+			name: "diff against main branch",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"d", "-m"},
+				RunResponses: []*command.FakeRun{{
+					Stdout: []string{"test-repo"},
+				}},
+				WantRunContents: [][]string{repoRunContents()},
+				WantData: &command.Data{Values: map[string]interface{}{
+					repoName.Name(): "test-repo",
+					mainFlag.Name(): true,
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git diff main `,
+					},
+				},
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if test.g == nil {

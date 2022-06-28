@@ -38,6 +38,23 @@ var (
 	forceDelete     = command.BoolFlag("force-delete", 'f', "force delete the branch")
 	globalConfig    = command.BoolFlag("global", 'g', "Whether or not to change the global setting")
 	newBranchFlag   = command.BoolFlag("new-branch", 'n', "Whether or not to checkout a new branch")
+	uaArgs          = command.ListArg[string](
+		"FILE", "Files to un-add",
+		1, command.UnboundedList,
+		// PrefixCompletor[[]string]("[^ ]."),
+		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --cached --name-only --relative"),
+	)
+	diffArgs = command.ListArg[string](
+		"FILE", "Files to diff",
+		0, command.UnboundedList,
+		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --name-only --relative"),
+	)
+
+	ucArgs = command.ListArg[string](
+		"FILE", "Files to un-change",
+		1, command.UnboundedList,
+		PrefixCompletor[[]string](".[^ ]"),
+	)
 )
 
 func CLI() *git {
@@ -156,25 +173,6 @@ func PrefixCompletor[T any](prefixCode string) command.Completor[T] {
 }
 
 func (g *git) Node() *command.Node {
-	diffArgs := command.ListArg[string](
-		"FILE", "Files to diff",
-		0, command.UnboundedList,
-		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --name-only --relative"),
-	)
-
-	uaArgs := command.ListArg[string](
-		"FILE", "Files to un-add",
-		1, command.UnboundedList,
-		// PrefixCompletor[[]string]("[^ ]."),
-		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --cached --name-only --relative"),
-	)
-
-	ucArgs := command.ListArg[string](
-		"FILE", "Files to un-change",
-		1, command.UnboundedList,
-		PrefixCompletor[[]string](".[^ ]"),
-	)
-
 	return command.BranchNode(map[string]*command.Node{
 		// Configs
 		"cfg": command.SerialNodes(
