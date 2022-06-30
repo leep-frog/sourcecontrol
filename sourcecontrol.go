@@ -18,9 +18,8 @@ func BranchCompletor() command.Completor[string] {
 }
 
 var (
-	nvFlag   = command.BoolFlag("no-verify", 'n', "Whether or not to run pre-commit checks")
-	pushFlag = command.BoolFlag("push", 'p', "Whether or not to push afterwards")
-	// test
+	nvFlag     = command.BoolFlag("no-verify", 'n', "Whether or not to run pre-commit checks")
+	pushFlag   = command.BoolFlag("push", 'p', "Whether or not to push afterwards")
 	messageArg = command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
 	branchArg  = command.Arg[string](
 		"BRANCH",
