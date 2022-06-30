@@ -84,8 +84,7 @@ func GitAliasers() sourcerer.Option {
 		"gsh":  {"g", "sh"},
 		"sq":   {"g", "q"},
 		"gbd":  {"g", "bd"},
-		// test
-		"glg": {"g", "lg"},
+		"glg":  {"g", "lg"},
 	})
 }
 
