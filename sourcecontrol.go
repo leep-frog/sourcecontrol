@@ -10,7 +10,11 @@ import (
 
 const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
-	createSSHAgent = "{ ps -p $SSH_AGENT_PID > /dev/null && ssh-add -l > /dev/null ; } || { echo Creating new ssh agent... && eval `ssh-agent` && ssh-add }"
+	// Parentheses execute the commands in a subshell
+	// Using brackets for these binary groupings ensures
+	// the proper environment variables are set in the
+	// current bash session.
+	createSSHAgent = "{ ps -p $SSH_AGENT_PID > /dev/null && ssh-add -l > /dev/null ; } || { echo Creating new ssh agent... && eval `ssh-agent` && ssh-add ; }"
 )
 
 func BranchCompletor() command.Completor[string] {
