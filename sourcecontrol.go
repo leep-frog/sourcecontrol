@@ -12,7 +12,7 @@ import (
 
 const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
-	createSSHAgent = "ps -p $SSH_AGENT_PID > /dev/null || eval `ssh-agent` && ssh-add"
+	createSSHAgent = "ps -p $SSH_AGENT_PID > /dev/null || (eval `ssh-agent` && ssh-add)"
 )
 
 func BranchCompletor() command.Completor[string] {
