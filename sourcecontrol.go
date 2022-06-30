@@ -8,8 +8,6 @@ import (
 	"github.com/leep-frog/command/sourcerer"
 )
 
-// TODO: test this package
-
 const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
 	createSSHAgent = "ps -p $SSH_AGENT_PID > /dev/null || (eval `ssh-agent` && ssh-add)"
