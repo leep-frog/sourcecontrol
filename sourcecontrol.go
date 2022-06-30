@@ -297,10 +297,10 @@ func (g *git) Node() *command.Node {
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				var nv string
 				if nvFlag.Get(d) {
-					nv = "--no-verify"
+					nv = "--no-verify "
 				}
 				r := []string{
-					fmt.Sprintf("git commit -m %s %q", nv, strings.Join(messageArg.Get(d), " ")),
+					fmt.Sprintf("git commit %s-m %q", nv, strings.Join(messageArg.Get(d), " ")),
 				}
 				if pushFlag.Get(d) {
 					r = append(r,
@@ -323,9 +323,9 @@ func (g *git) Node() *command.Node {
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				var nv string
 				if nvFlag.Get(d) {
-					nv = "--no-verify"
+					nv = "--no-verify "
 				}
-				r := fmt.Sprintf("git commit -m %s %q", nv, strings.Join(messageArg.Get(d), " "))
+				r := fmt.Sprintf("git commit %s-m %q", nv, strings.Join(messageArg.Get(d), " "))
 				return []string{
 					r,
 					createSSHAgent,

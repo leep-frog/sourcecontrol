@@ -228,7 +228,7 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git commit -m  "did things"`,
+						`git commit -m "did things"`,
 						"echo Success!",
 					},
 				},
@@ -244,7 +244,7 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git commit -m --no-verify "did things"`,
+						`git commit --no-verify -m "did things"`,
 						"echo Success!",
 					},
 				},
@@ -260,7 +260,7 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git commit -m  "did things"`,
+						`git commit -m "did things"`,
 						createSSHAgent,
 						`git push`,
 						"echo Success!",
@@ -279,7 +279,26 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git commit -m --no-verify "did things"`,
+						`git commit --no-verify -m "did things"`,
+						createSSHAgent,
+						`git push`,
+						"echo Success!",
+					},
+				},
+			},
+		},
+		{
+			name: "commit no verify and push as multi-flag",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"c", "-np", "did", "things"},
+				WantData: &command.Data{Values: map[string]interface{}{
+					messageArg.Name(): []string{"did", "things"},
+					nvFlag.Name():     true,
+					pushFlag.Name():   true,
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git commit --no-verify -m "did things"`,
 						createSSHAgent,
 						`git push`,
 						"echo Success!",
@@ -305,7 +324,7 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git commit -m  "did things"`,
+						`git commit -m "did things"`,
 						createSSHAgent,
 						`git push`,
 						"echo Success!",
@@ -323,7 +342,7 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git commit -m --no-verify "did things"`,
+						`git commit --no-verify -m "did things"`,
 						createSSHAgent,
 						`git push`,
 						"echo Success!",
