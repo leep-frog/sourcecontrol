@@ -215,7 +215,7 @@ func TestExecution(t *testing.T) {
 			name: "commit requires args",
 			etc: &command.ExecuteTestCase{
 				Args:       []string{"c"},
-				WantStderr: []string{`Argument "MESSAGE" requires at least 1 argument, got 0`},
+				WantStderr: "Argument \"MESSAGE\" requires at least 1 argument, got 0\n",
 				WantErr:    fmt.Errorf(`Argument "MESSAGE" requires at least 1 argument, got 0`),
 			},
 		},
@@ -240,7 +240,7 @@ func TestExecution(t *testing.T) {
 				Args: []string{"c", "did", "things", "-n"},
 				WantData: &command.Data{Values: map[string]interface{}{
 					messageArg.Name(): []string{"did", "things"},
-					nvFlag.Name():     true,
+					nvFlag.Name():     nvFlag.TrueValue(),
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
@@ -274,7 +274,7 @@ func TestExecution(t *testing.T) {
 				Args: []string{"c", "did", "things", "--no-verify", "--push"},
 				WantData: &command.Data{Values: map[string]interface{}{
 					messageArg.Name(): []string{"did", "things"},
-					nvFlag.Name():     true,
+					nvFlag.Name():     nvFlag.TrueValue(),
 					pushFlag.Name():   true,
 				}},
 				WantExecuteData: &command.ExecuteData{
@@ -293,7 +293,7 @@ func TestExecution(t *testing.T) {
 				Args: []string{"c", "-np", "did", "things"},
 				WantData: &command.Data{Values: map[string]interface{}{
 					messageArg.Name(): []string{"did", "things"},
-					nvFlag.Name():     true,
+					nvFlag.Name():     nvFlag.TrueValue(),
 					pushFlag.Name():   true,
 				}},
 				WantExecuteData: &command.ExecuteData{
@@ -311,7 +311,7 @@ func TestExecution(t *testing.T) {
 			name: "commit and push requires args",
 			etc: &command.ExecuteTestCase{
 				Args:       []string{"cp"},
-				WantStderr: []string{`Argument "MESSAGE" requires at least 1 argument, got 0`},
+				WantStderr: "Argument \"MESSAGE\" requires at least 1 argument, got 0\n",
 				WantErr:    fmt.Errorf(`Argument "MESSAGE" requires at least 1 argument, got 0`),
 			},
 		},
@@ -338,7 +338,7 @@ func TestExecution(t *testing.T) {
 				Args: []string{"cp", "did", "things", "-n"},
 				WantData: &command.Data{Values: map[string]interface{}{
 					messageArg.Name(): []string{"did", "things"},
-					nvFlag.Name():     true,
+					nvFlag.Name():     nvFlag.TrueValue(),
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
@@ -355,7 +355,7 @@ func TestExecution(t *testing.T) {
 			name: "checkout branch requires arg",
 			etc: &command.ExecuteTestCase{
 				Args:       []string{"ch"},
-				WantStderr: []string{`Argument "BRANCH" requires at least 1 argument, got 0`},
+				WantStderr: "Argument \"BRANCH\" requires at least 1 argument, got 0\n",
 				WantErr:    fmt.Errorf(`Argument "BRANCH" requires at least 1 argument, got 0`),
 			},
 		},
@@ -371,7 +371,7 @@ func TestExecution(t *testing.T) {
 						`git checkout tree`,
 					},
 				},
-				WantStderr: []string{`Unprocessed extra args: [limb]`},
+				WantStderr: "Unprocessed extra args: [limb]\n",
 				WantErr:    fmt.Errorf(`Unprocessed extra args: [limb]`),
 			},
 		},
@@ -409,7 +409,7 @@ func TestExecution(t *testing.T) {
 			name: "delete branch requires arg",
 			etc: &command.ExecuteTestCase{
 				Args:       []string{"bd"},
-				WantStderr: []string{`Argument "BRANCH" requires at least 1 argument, got 0`},
+				WantStderr: "Argument \"BRANCH\" requires at least 1 argument, got 0\n",
 				WantErr:    fmt.Errorf(`Argument "BRANCH" requires at least 1 argument, got 0`),
 			},
 		},
@@ -425,7 +425,7 @@ func TestExecution(t *testing.T) {
 						`git branch -d tree`,
 					},
 				},
-				WantStderr: []string{`Unprocessed extra args: [limb]`},
+				WantStderr: "Unprocessed extra args: [limb]\n",
 				WantErr:    fmt.Errorf(`Unprocessed extra args: [limb]`),
 			},
 		},
@@ -463,7 +463,7 @@ func TestExecution(t *testing.T) {
 			name: "undo requires args",
 			etc: &command.ExecuteTestCase{
 				Args:       []string{"ua"},
-				WantStderr: []string{`Argument "FILE" requires at least 1 argument, got 0`},
+				WantStderr: "Argument \"FILE\" requires at least 1 argument, got 0\n",
 				WantErr:    fmt.Errorf(`Argument "FILE" requires at least 1 argument, got 0`),
 			},
 		},
@@ -489,7 +489,7 @@ func TestExecution(t *testing.T) {
 			name: "undo change requires args",
 			etc: &command.ExecuteTestCase{
 				Args:       []string{"uc"},
-				WantStderr: []string{`Argument "FILE" requires at least 1 argument, got 0`},
+				WantStderr: "Argument \"FILE\" requires at least 1 argument, got 0\n",
 				WantErr:    fmt.Errorf(`Argument "FILE" requires at least 1 argument, got 0`),
 			},
 		},

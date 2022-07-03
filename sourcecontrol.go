@@ -22,7 +22,8 @@ func BranchCompletor() command.Completor[string] {
 }
 
 var (
-	nvFlag     = command.BoolFlag("no-verify", 'n', "Whether or not to run pre-commit checks")
+	// TODO: expose functions for BoolValueFlags true and false values.
+	nvFlag     = command.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
 	pushFlag   = command.BoolFlag("push", 'p', "Whether or not to push afterwards")
 	messageArg = command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
 	branchArg  = command.Arg[string](
@@ -135,7 +136,7 @@ func (g *git) setDefualtBranch(o command.Output, d *command.Data, v string) {
 	}
 	rn := repoName.Get(d)
 	g.MainBranches[rn] = v
-	o.Stdoutf("Setting default branch for %s to %s", rn, v)
+	o.Stdoutf("Setting default branch for %s to %s\n", rn, v)
 }
 
 func (g *git) unsetDefualtBranch(o command.Output, d *command.Data) {
@@ -144,7 +145,7 @@ func (g *git) unsetDefualtBranch(o command.Output, d *command.Data) {
 	}
 	rn := repoName.Get(d)
 	delete(g.MainBranches, rn)
-	o.Stdoutf("Deleting default branch for %s", rn)
+	o.Stdoutf("Deleting default branch for %s\n", rn)
 }
 
 func (g *git) MarkChanged() {
@@ -185,9 +186,9 @@ func (g *git) Node() *command.Node {
 				"main": command.BranchNode(map[string]*command.Node{
 					"show": command.SerialNodes(
 						command.ExecutorNode(func(o command.Output, d *command.Data) {
-							o.Stdoutf("Global main: %s", g.DefaultBranch)
+							o.Stdoutf("Global main: %s\n", g.DefaultBranch)
 							for k, v := range g.MainBranches {
-								o.Stdoutf("%s: %s", k, v)
+								o.Stdoutf("%s: %s\n", k, v)
 							}
 						}),
 					),
@@ -298,12 +299,8 @@ func (g *git) Node() *command.Node {
 			),
 			messageArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				var nv string
-				if nvFlag.Get(d) {
-					nv = "--no-verify "
-				}
 				r := []string{
-					fmt.Sprintf("git commit %s-m %q", nv, strings.Join(messageArg.Get(d), " ")),
+					fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
 				}
 				if pushFlag.Get(d) {
 					r = append(r,
@@ -324,11 +321,7 @@ func (g *git) Node() *command.Node {
 			),
 			messageArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				var nv string
-				if nvFlag.Get(d) {
-					nv = "--no-verify "
-				}
-				r := fmt.Sprintf("git commit %s-m %q", nv, strings.Join(messageArg.Get(d), " "))
+				r := fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " "))
 				return []string{
 					r,
 					createSSHAgent,
@@ -350,9 +343,7 @@ func (g *git) Node() *command.Node {
 				r := []string{
 					fmt.Sprintf("git reset --soft HEAD~3 && git commit -m %q", strings.Join(messageArg.Get(d), " ")),
 				}
-				if nvFlag.Get(d) {
-					r = append(r, " --no-verify")
-				}
+				r = append(r, nvFlag.Get(d))
 				if pushFlag.Get(d) {
 					r = append(r, "&& git push")
 				}
