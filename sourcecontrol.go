@@ -14,15 +14,15 @@ const (
 	// Using brackets for these binary groupings ensures
 	// the proper environment variables are set in the
 	// current bash session.
-	createSSHAgent = "{ ps -p $SSH_AGENT_PID > /dev/null && ssh-add -l > /dev/null ; } || { echo Creating new ssh agent... && eval `ssh-agent` && ssh-add ; }"
+	// This should always be used with FunctionWrap (see sshNode) since it returns an exit code upon failure.
+	createSSHAgentCommand = "{ ps -p $SSH_AGENT_PID > /dev/null && ssh-add -l > /dev/null ; } || { echo Creating new ssh agent... && eval `ssh-agent` && ssh-add ; } || { return 1 ; }"
 )
 
-func BranchCompletor() command.Completor[string] {
-	return command.BashCompletor[string](`git branch | grep -v "\*"`)
-}
-
 var (
-	// TODO: expose functions for BoolValueFlags true and false values.
+	sshNode = command.SerialNodes(
+		command.FunctionWrap(),
+		command.SimpleExecutableNode(createSSHAgentCommand),
+	)
 	nvFlag     = command.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
 	pushFlag   = command.BoolFlag("push", 'p', "Whether or not to push afterwards")
 	messageArg = command.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
@@ -62,6 +62,10 @@ var (
 
 func CLI() *git {
 	return &git{}
+}
+
+func BranchCompletor() command.Completor[string] {
+	return command.BashCompletor[string](`git branch | grep -v "\*"`)
 }
 
 func GitAliasers() sourcerer.Option {
@@ -227,28 +231,28 @@ func (g *git) Node() *command.Node {
 		),
 		"l": command.SerialNodes(
 			command.Description("Pull"),
+			sshNode,
 			command.SimpleExecutableNode(
-				createSSHAgent,
 				"git pull",
 			),
 		),
 		"p": command.SerialNodes(
 			command.Description("Push"),
+			sshNode,
 			command.SimpleExecutableNode(
-				createSSHAgent,
 				"git push",
 			),
 		),
 		"pp": command.SerialNodes(
 			command.Description("Pull and push"),
+			sshNode,
 			command.SimpleExecutableNode(
-				createSSHAgent,
 				"git pull && git push",
 			),
 		),
 		"sh": command.SerialNodes(
 			command.Description("Create ssh-agent"),
-			command.SimpleExecutableNode(createSSHAgent),
+			sshNode,
 		),
 		"uco": command.SerialNodes(
 			command.Description("Undo commit"),
@@ -298,18 +302,25 @@ func (g *git) Node() *command.Node {
 				pushFlag,
 			),
 			messageArg,
+			command.ConditionalProcessor(
+				sshNode,
+				func(i *command.Input, d *command.Data) bool {
+					return pushFlag.Get(d)
+				},
+			),
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 				r := []string{
 					fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
 				}
 				if pushFlag.Get(d) {
 					r = append(r,
-						createSSHAgent,
 						"git push",
 					)
 				}
 				r = append(r, "echo Success!")
-				return r, nil
+				return []string{
+					strings.Join(r, " && "),
+				}, nil
 			}),
 		),
 
@@ -320,13 +331,14 @@ func (g *git) Node() *command.Node {
 				nvFlag,
 			),
 			messageArg,
+			sshNode,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				r := fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " "))
 				return []string{
-					r,
-					createSSHAgent,
-					"git push",
-					"echo Success!",
+					strings.Join([]string{
+						fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
+						"git push",
+						"echo Success!",
+					}, " && "),
 				}, nil
 			}),
 		),
@@ -340,6 +352,8 @@ func (g *git) Node() *command.Node {
 			),
 			messageArg,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				// TODO: Fix and test this
+				// TODO: also make sure to combine with "&&" if relevant
 				r := []string{
 					fmt.Sprintf("git reset --soft HEAD~3 && git commit -m %q", strings.Join(messageArg.Get(d), " ")),
 				}

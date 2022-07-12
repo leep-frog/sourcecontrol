@@ -35,8 +35,9 @@ func TestExecution(t *testing.T) {
 			etc: &command.ExecuteTestCase{
 				Args: []string{"l"},
 				WantExecuteData: &command.ExecuteData{
+					FunctionWrap: true,
 					Executable: []string{
-						createSSHAgent,
+						createSSHAgentCommand,
 						"git pull",
 					},
 				},
@@ -228,8 +229,7 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git commit -m "did things"`,
-						"echo Success!",
+						`git commit -m "did things" && echo Success!`,
 					},
 				},
 			},
@@ -244,8 +244,7 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git commit --no-verify -m "did things"`,
-						"echo Success!",
+						`git commit --no-verify -m "did things" && echo Success!`,
 					},
 				},
 			},
@@ -259,11 +258,10 @@ func TestExecution(t *testing.T) {
 					pushFlag.Name():   true,
 				}},
 				WantExecuteData: &command.ExecuteData{
+					FunctionWrap: true,
 					Executable: []string{
-						`git commit -m "did things"`,
-						createSSHAgent,
-						`git push`,
-						"echo Success!",
+						createSSHAgentCommand,
+						`git commit -m "did things" && git push && echo Success!`,
 					},
 				},
 			},
@@ -278,11 +276,10 @@ func TestExecution(t *testing.T) {
 					pushFlag.Name():   true,
 				}},
 				WantExecuteData: &command.ExecuteData{
+					FunctionWrap: true,
 					Executable: []string{
-						`git commit --no-verify -m "did things"`,
-						createSSHAgent,
-						`git push`,
-						"echo Success!",
+						createSSHAgentCommand,
+						`git commit --no-verify -m "did things" && git push && echo Success!`,
 					},
 				},
 			},
@@ -297,11 +294,10 @@ func TestExecution(t *testing.T) {
 					pushFlag.Name():   true,
 				}},
 				WantExecuteData: &command.ExecuteData{
+					FunctionWrap: true,
 					Executable: []string{
-						`git commit --no-verify -m "did things"`,
-						createSSHAgent,
-						`git push`,
-						"echo Success!",
+						createSSHAgentCommand,
+						`git commit --no-verify -m "did things" && git push && echo Success!`,
 					},
 				},
 			},
@@ -323,11 +319,10 @@ func TestExecution(t *testing.T) {
 					messageArg.Name(): []string{"did", "things"},
 				}},
 				WantExecuteData: &command.ExecuteData{
+					FunctionWrap: true,
 					Executable: []string{
-						`git commit -m "did things"`,
-						createSSHAgent,
-						`git push`,
-						"echo Success!",
+						createSSHAgentCommand,
+						`git commit -m "did things" && git push && echo Success!`,
 					},
 				},
 			},
@@ -341,11 +336,10 @@ func TestExecution(t *testing.T) {
 					nvFlag.Name():     nvFlag.TrueValue(),
 				}},
 				WantExecuteData: &command.ExecuteData{
+					FunctionWrap: true,
 					Executable: []string{
-						`git commit --no-verify -m "did things"`,
-						createSSHAgent,
-						`git push`,
-						"echo Success!",
+						createSSHAgentCommand,
+						`git commit --no-verify -m "did things" && git push && echo Success!`,
 					},
 				},
 			},
