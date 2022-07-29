@@ -41,6 +41,7 @@ var (
 	forceDelete     = command.BoolFlag("force-delete", 'f', "force delete the branch")
 	globalConfig    = command.BoolFlag("global", 'g', "Whether or not to change the global setting")
 	newBranchFlag   = command.BoolFlag("new-branch", 'n', "Whether or not to checkout a new branch")
+	whitespaceFlag  = command.BoolValueFlag("whitespace", 'w', "Whether or not to show whitespace in diffs", "-w")
 	uaArgs          = command.ListArg[string](
 		"FILE", "Files to un-add",
 		1, command.UnboundedList,
@@ -403,7 +404,10 @@ func (g *git) Node() *command.Node {
 		// Diff
 		"d": command.SerialNodes(
 			command.Description("Diff"),
-			command.NewFlagNode(mainFlag),
+			command.NewFlagNode(
+				mainFlag,
+				whitespaceFlag,
+			),
 			diffArgs,
 			repoName,
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
@@ -412,7 +416,7 @@ func (g *git) Node() *command.Node {
 					branch = g.defualtBranch(d)
 				}
 				return []string{
-					fmt.Sprintf("git diff %s %s", branch, strings.Join(diffArgs.Get(d), " ")),
+					fmt.Sprintf("git diff %s %s %s", whitespaceFlag.Get(d), branch, strings.Join(diffArgs.Get(d), " ")),
 				}, nil
 			}),
 		),

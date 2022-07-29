@@ -576,7 +576,7 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git diff -- `,
+						`git diff  -- `,
 					},
 				},
 			},
@@ -598,7 +598,7 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git diff -- this.file that/file/txt`,
+						`git diff  -- this.file that/file/txt`,
 					},
 				},
 			},
@@ -617,7 +617,26 @@ func TestExecution(t *testing.T) {
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
-						`git diff main `,
+						`git diff  main `,
+					},
+				},
+			},
+		},
+		{
+			name: "diff with whitespace flag",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"d", "-w"},
+				RunResponses: []*command.FakeRun{{
+					Stdout: []string{"test-repo"},
+				}},
+				WantRunContents: [][]string{repoRunContents()},
+				WantData: &command.Data{Values: map[string]interface{}{
+					repoName.Name():       "test-repo",
+					whitespaceFlag.Name(): "-w",
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git diff -w -- `,
 					},
 				},
 			},
