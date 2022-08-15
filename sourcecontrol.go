@@ -94,6 +94,7 @@ func GitAliasers() sourcerer.Option {
 		"sq":   {"g", "q"},
 		"gbd":  {"g", "bd"},
 		"glg":  {"g", "lg"},
+		"gedo": {"g", "edo"},
 	})
 }
 
@@ -265,6 +266,19 @@ func (g *git) Node() *command.Node {
 		),
 
 		// Complex commands
+		"edo": command.SerialNodes(
+			command.Description("Adds local changes to the previous commit"),
+			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				s, err := command.NewBashCommand[string]("", []string{`git log -1 --pretty=%B`}, command.HideStderr[string]()).Run(nil)
+				if err != nil {
+					return nil, o.Annotatef(err, "failed to get previous commit message")
+				}
+
+				return []string{
+					fmt.Sprintf("guco && ga . && gc %q", s),
+				}, nil
+			}),
+		),
 		// Git log
 		"lg": command.SerialNodes(
 			command.Description("Git log"),

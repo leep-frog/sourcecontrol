@@ -54,6 +54,42 @@ func TestExecution(t *testing.T) {
 				},
 			},
 		},
+		// Git redo
+		{
+			name: "git redo succeeds",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"edo"},
+				RunResponses: []*command.FakeRun{{
+					Stdout: []string{"my previous commit message"},
+				}},
+				WantRunContents: [][]string{{
+					"set -e",
+					"set -o pipefail",
+					`git log -1 --pretty=%B`,
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`guco && ga . && gc "my previous commit message"`,
+					},
+				},
+			},
+		},
+		{
+			name: "git redo fails",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"edo"},
+				RunResponses: []*command.FakeRun{{
+					Err: fmt.Errorf("oops"),
+				}},
+				WantRunContents: [][]string{{
+					"set -e",
+					"set -o pipefail",
+					`git log -1 --pretty=%B`,
+				}},
+				WantStderr: "failed to get previous commit message: failed to execute bash command: oops\n",
+				WantErr:    fmt.Errorf("failed to get previous commit message: failed to execute bash command: oops"),
+			},
+		},
 		// Git log
 		{
 			name: "git log with no args",
