@@ -29,13 +29,13 @@ var (
 	branchArg  = command.Arg[string](
 		"BRANCH",
 		"Branch",
-		BranchCompletor(),
+		BranchCompleter(),
 	)
 	mainFlag        = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
-	addCompletor    = PrefixCompletor[[]string](".[^ ]")
-	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompletor)
-	statusCompletor = PrefixCompletor[[]string]("..")
-	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompletor)
+	addCompleter    = PrefixCompleter[[]string](".[^ ]")
+	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompleter)
+	statusCompleter = PrefixCompleter[[]string]("..")
+	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompleter)
 	repoName        = command.NewBashCommand[string]("REPO", []string{"git rev-parse --show-toplevel | xargs basename"})
 	defRepoArg      = command.Arg[string]("DEFAULT_BRANCH", "Default branch for this git repo")
 	forceDelete     = command.BoolFlag("force-delete", 'f', "force delete the branch")
@@ -45,18 +45,18 @@ var (
 	uaArgs          = command.ListArg[string](
 		"FILE", "Files to un-add",
 		1, command.UnboundedList,
-		// PrefixCompletor[[]string]("[^ ]."),
-		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --cached --name-only --relative"),
+		// PrefixCompleter[[]string]("[^ ]."),
+		command.BashCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --cached --name-only --relative"),
 	)
 	diffArgs = command.ListArg[string](
 		"FILE", "Files to diff",
 		0, command.UnboundedList,
-		command.BashCompletorWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --name-only --relative"),
+		command.BashCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --name-only --relative"),
 	)
 	ucArgs = command.ListArg[string](
 		"FILE", "Files to un-change",
 		1, command.UnboundedList,
-		PrefixCompletor[[]string](".[^ ]"),
+		PrefixCompleter[[]string](".[^ ]"),
 	)
 	gitLogArg = command.OptionalArg[int]("N", "Number of git logs to display", command.Positive[int](), command.Default(1))
 )
@@ -65,8 +65,8 @@ func CLI() *git {
 	return &git{}
 }
 
-func BranchCompletor() command.Completor[string] {
-	return command.BashCompletor[string](`git branch | grep -v "\*"`)
+func BranchCompleter() command.Completer[string] {
+	return command.BashCompleter[string](`git branch | grep -v "\*"`)
 }
 
 func GitAliasers() sourcerer.Option {
@@ -158,7 +158,7 @@ func (g *git) MarkChanged() {
 	g.changed = true
 }
 
-func PrefixCompletorScript(prefixCode string) []string {
+func PrefixCompleterScript(prefixCode string) []string {
 	return []string{
 		fmt.Sprintf(`results="$(git status --porcelain | grep "%s" | cut -c 4-)";`, prefixCode),
 		`toplevel="$(git rev-parse --show-toplevel)";`,
@@ -169,9 +169,9 @@ func PrefixCompletorScript(prefixCode string) []string {
 	}
 }
 
-func PrefixCompletor[T any](prefixCode string) command.Completor[T] {
-	return command.CompletorFromFunc(func(T, *command.Data) (*command.Completion, error) {
-		results, err := command.NewBashCommand[[]string]("opts", PrefixCompletorScript(prefixCode)).Run(nil)
+func PrefixCompleter[T any](prefixCode string) command.Completer[T] {
+	return command.CompleterFromFunc(func(T, *command.Data) (*command.Completion, error) {
+		results, err := command.NewBashCommand[[]string]("opts", PrefixCompleterScript(prefixCode)).Run(nil)
 		if err != nil {
 			return nil, err
 		}
