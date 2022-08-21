@@ -13,7 +13,7 @@ alias cm='git checkout master' # done
 alias gcb='git checkout -b' # done
 alias gmm='git merge master' # done
 
-function gcp { # TODO
+function gcp {
   _commit "$*" && gp && echo SUCCESS!
 }
 
@@ -34,9 +34,6 @@ alias gua='git reset'  # git undo add // done
 alias ch='git checkout' # done
 alias gbd='git branch -d' # irrelevant
 alias gbd='git branch -D' # irrelevant
-
-# TODO: ge # emacs git edited files
-# TODO: grm # remove git files
 
 function _with_prefix {
   regex="^$1 "
