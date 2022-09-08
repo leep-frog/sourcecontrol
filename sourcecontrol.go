@@ -170,8 +170,8 @@ func PrefixCompleterScript(prefixCode string) []string {
 }
 
 func PrefixCompleter[T any](prefixCode string) command.Completer[T] {
-	return command.CompleterFromFunc(func(T, *command.Data) (*command.Completion, error) {
-		results, err := command.NewBashCommand[[]string]("opts", PrefixCompleterScript(prefixCode)).Run(nil)
+	return command.CompleterFromFunc(func(t T, d *command.Data) (*command.Completion, error) {
+		results, err := command.NewBashCommand[[]string]("opts", PrefixCompleterScript(prefixCode)).Run(nil, d)
 		if err != nil {
 			return nil, err
 		}
@@ -269,7 +269,7 @@ func (g *git) Node() *command.Node {
 		"edo": command.SerialNodes(
 			command.Description("Adds local changes to the previous commit"),
 			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				s, err := command.NewBashCommand[string]("", []string{`git log -1 --pretty=%B`}, command.HideStderr[string]()).Run(nil)
+				s, err := command.NewBashCommand[string]("", []string{`git log -1 --pretty=%B`}, command.HideStderr[string]()).Run(nil, d)
 				if err != nil {
 					return nil, o.Annotatef(err, "failed to get previous commit message")
 				}
