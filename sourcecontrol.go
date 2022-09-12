@@ -317,7 +317,7 @@ func (g *git) Node() *command.Node {
 				pushFlag,
 			),
 			messageArg,
-			command.ConditionalProcessor(
+			command.If(
 				sshNode,
 				func(i *command.Input, d *command.Data) bool {
 					return pushFlag.Get(d)
