@@ -184,301 +184,309 @@ func PrefixCompleter[T any](prefixCode string) command.Completer[T] {
 }
 
 func (g *git) Node() *command.Node {
-	return command.BranchNode(map[string]*command.Node{
-		// Configs
-		"cfg": command.SerialNodes(
-			command.Description("Config settings"),
-			command.BranchNode(map[string]*command.Node{
-				"main": command.BranchNode(map[string]*command.Node{
-					"show": command.SerialNodes(
-						command.ExecutorNode(func(o command.Output, d *command.Data) {
-							o.Stdoutf("Global main: %s\n", g.DefaultBranch)
-							for k, v := range g.MainBranches {
-								o.Stdoutf("%s: %s\n", k, v)
-							}
-						}),
-					),
-					"set": command.SerialNodes(
-						command.NewFlagNode(globalConfig),
-						repoName,
-						defRepoArg,
-						command.ExecutorNode(func(o command.Output, d *command.Data) {
-							if globalConfig.Get(d) {
-								g.DefaultBranch = defRepoArg.Get(d)
-							} else {
-								g.setDefualtBranch(o, d, defRepoArg.Get(d))
-							}
-							g.changed = true
-						}),
-					),
-					"unset": command.SerialNodes(
-						repoName,
-						command.ExecutorNode(func(o command.Output, d *command.Data) {
-							if globalConfig.Get(d) {
-								g.DefaultBranch = ""
-							} else {
-								g.unsetDefualtBranch(o, d)
-							}
-							g.changed = true
-						}),
-					),
-				}, nil),
-			}, nil),
-		),
+	return command.AsNode(&command.BranchNode{
+		Branches: map[string]*command.Node{
+			// Configs
+			"cfg": command.SerialNodes(
+				command.Description("Config settings"),
+				command.AsNode(&command.BranchNode{
+					Branches: map[string]*command.Node{
+						"main": command.AsNode(&command.BranchNode{
+							Branches: map[string]*command.Node{
+								"show": command.SerialNodes(
+									&command.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
+										o.Stdoutf("Global main: %s\n", g.DefaultBranch)
+										for k, v := range g.MainBranches {
+											o.Stdoutf("%s: %s\n", k, v)
+										}
+										return nil
+									}},
+								),
+								"set": command.SerialNodes(
+									command.FlagNode(globalConfig),
+									repoName,
+									defRepoArg,
+									&command.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
+										if globalConfig.Get(d) {
+											g.DefaultBranch = defRepoArg.Get(d)
+										} else {
+											g.setDefualtBranch(o, d, defRepoArg.Get(d))
+										}
+										g.changed = true
+										return nil
+									}},
+								),
+								"unset": command.SerialNodes(
+									repoName,
+									&command.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
+										if globalConfig.Get(d) {
+											g.DefaultBranch = ""
+										} else {
+											g.unsetDefualtBranch(o, d)
+										}
+										g.changed = true
+										return nil
+									}},
+								),
+							}}),
+					}}),
+			),
 
-		// Simple commands
-		"b": command.SerialNodes(
-			command.Description("Branch"),
-			command.SimpleExecutableNode("git branch"),
-		),
-		"l": command.SerialNodes(
-			command.Description("Pull"),
-			sshNode,
-			command.SimpleExecutableNode(
-				"git pull",
+			// Simple commands
+			"b": command.SerialNodes(
+				command.Description("Branch"),
+				command.SimpleExecutableNode("git branch"),
 			),
-		),
-		"p": command.SerialNodes(
-			command.Description("Push"),
-			sshNode,
-			command.SimpleExecutableNode(
-				"git push",
-			),
-		),
-		"pp": command.SerialNodes(
-			command.Description("Pull and push"),
-			sshNode,
-			command.SimpleExecutableNode(
-				"git pull && git push",
-			),
-		),
-		"sh": command.SerialNodes(
-			command.Description("Create ssh-agent"),
-			sshNode,
-		),
-		"uco": command.SerialNodes(
-			command.Description("Undo commit"),
-			command.SimpleExecutableNode("git reset HEAD~"),
-		),
-		"f": command.SerialNodes(
-			command.Description("Git fetch"),
-			command.SimpleExecutableNode("git fetch"),
-		),
-
-		// Complex commands
-		"edo": command.SerialNodes(
-			command.Description("Adds local changes to the previous commit"),
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				s, err := command.NewBashCommand[string]("", []string{`git log -1 --pretty=%B`}, command.HideStderr[string]()).Run(nil, d)
-				if err != nil {
-					return nil, o.Annotatef(err, "failed to get previous commit message")
-				}
-
-				return []string{
-					fmt.Sprintf("guco && ga . && gc %q", s),
-				}, nil
-			}),
-		),
-		// Git log
-		"lg": command.SerialNodes(
-			command.Description("Git log"),
-			gitLogArg,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				return []string{
-					fmt.Sprintf("git log -n %d", gitLogArg.Get(d)),
-				}, nil
-			}),
-		),
-		// Checkout main
-		"m": command.SerialNodes(
-			command.Description("Checkout main"),
-			repoName,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				return []string{
-					fmt.Sprintf("git checkout %s", g.defualtBranch(d)),
-				}, nil
-			}),
-		),
-		// Merge main
-		"mm": command.SerialNodes(
-			command.Description("Merge main"),
-			repoName,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				return []string{
-					fmt.Sprintf("git merge %s", g.defualtBranch(d)),
-				}, nil
-			}),
-		),
-		// Commit
-		"c": command.SerialNodes(
-			command.Description("Commit"),
-			command.NewFlagNode(
-				nvFlag,
-				pushFlag,
-			),
-			messageArg,
-			command.If(
+			"l": command.SerialNodes(
+				command.Description("Pull"),
 				sshNode,
-				func(i *command.Input, d *command.Data) bool {
-					return pushFlag.Get(d)
-				},
+				command.SimpleExecutableNode(
+					"git pull",
+				),
 			),
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				r := []string{
-					fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
-				}
-				if pushFlag.Get(d) {
-					r = append(r,
-						"git push",
-					)
-				}
-				r = append(r, "echo Success!")
-				return []string{
-					strings.Join(r, " && "),
-				}, nil
-			}),
-		),
+			"p": command.SerialNodes(
+				command.Description("Push"),
+				sshNode,
+				command.SimpleExecutableNode(
+					"git push",
+				),
+			),
+			"pp": command.SerialNodes(
+				command.Description("Pull and push"),
+				sshNode,
+				command.SimpleExecutableNode(
+					"git pull && git push",
+				),
+			),
+			"sh": command.SerialNodes(
+				command.Description("Create ssh-agent"),
+				sshNode,
+			),
+			"uco": command.SerialNodes(
+				command.Description("Undo commit"),
+				command.SimpleExecutableNode("git reset HEAD~"),
+			),
+			"f": command.SerialNodes(
+				command.Description("Git fetch"),
+				command.SimpleExecutableNode("git fetch"),
+			),
 
-		// Commit & push
-		"cp": command.SerialNodes(
-			command.Description("Commit and push"),
-			command.NewFlagNode(
-				nvFlag,
+			// Complex commands
+			"edo": command.SerialNodes(
+				command.Description("Adds local changes to the previous commit"),
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					s, err := command.NewBashCommand[string]("", []string{`git log -1 --pretty=%B`}, command.HideStderr[string]()).Run(nil, d)
+					if err != nil {
+						return nil, o.Annotatef(err, "failed to get previous commit message")
+					}
+
+					return []string{
+						fmt.Sprintf("guco && ga . && gc %q", s),
+					}, nil
+				}),
 			),
-			messageArg,
-			sshNode,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				return []string{
-					strings.Join([]string{
+			// Git log
+			"lg": command.SerialNodes(
+				command.Description("Git log"),
+				gitLogArg,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					return []string{
+						fmt.Sprintf("git log -n %d", gitLogArg.Get(d)),
+					}, nil
+				}),
+			),
+			// Checkout main
+			"m": command.SerialNodes(
+				command.Description("Checkout main"),
+				repoName,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					return []string{
+						fmt.Sprintf("git checkout %s", g.defualtBranch(d)),
+					}, nil
+				}),
+			),
+			// Merge main
+			"mm": command.SerialNodes(
+				command.Description("Merge main"),
+				repoName,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					return []string{
+						fmt.Sprintf("git merge %s", g.defualtBranch(d)),
+					}, nil
+				}),
+			),
+			// Commit
+			"c": command.SerialNodes(
+				command.Description("Commit"),
+				command.FlagNode(
+					nvFlag,
+					pushFlag,
+				),
+				messageArg,
+				command.If(
+					sshNode,
+					func(i *command.Input, d *command.Data) bool {
+						return pushFlag.Get(d)
+					},
+				),
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					r := []string{
 						fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
-						"git push",
-						"echo Success!",
-					}, " && "),
-				}, nil
-			}),
-		),
-
-		// Squash
-		"q": command.CacheNode(commitCacheKey, g, command.SerialNodes(
-			command.Description("Squash local commits"),
-			command.NewFlagNode(
-				nvFlag,
-				pushFlag,
+					}
+					if pushFlag.Get(d) {
+						r = append(r,
+							"git push",
+						)
+					}
+					r = append(r, "echo Success!")
+					return []string{
+						strings.Join(r, " && "),
+					}, nil
+				}),
 			),
-			messageArg,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				// TODO: Fix and test this
-				// TODO: also make sure to combine with "&&" if relevant
-				r := []string{
-					fmt.Sprintf("git reset --soft HEAD~3 && git commit -m %q", strings.Join(messageArg.Get(d), " ")),
-				}
-				r = append(r, nvFlag.Get(d))
-				if pushFlag.Get(d) {
-					r = append(r, "&& git push")
-				}
-				r = append(r, "&& echo Success!")
-				return []string{strings.Join(r, " ")}, nil
-			})),
-		),
 
-		// Checkout branch
-		"ch": command.SerialNodes(
-			command.Description("Checkout new branch"),
-			command.NewFlagNode(
-				newBranchFlag,
+			// Commit & push
+			"cp": command.SerialNodes(
+				command.Description("Commit and push"),
+				command.FlagNode(
+					nvFlag,
+				),
+				messageArg,
+				sshNode,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					return []string{
+						strings.Join([]string{
+							fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
+							"git push",
+							"echo Success!",
+						}, " && "),
+					}, nil
+				}),
 			),
-			branchArg,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				flag := ""
-				if newBranchFlag.Get(d) {
-					flag = "-b "
-				}
-				return []string{
-					fmt.Sprintf("git checkout %s%s", flag, branchArg.Get(d)),
-				}, nil
-			}),
-		),
 
-		// Delete branch
-		"bd": command.SerialNodes(
-			command.Description("Delete branch"),
-			command.NewFlagNode(forceDelete),
-			branchArg,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				flag := "-d"
-				if forceDelete.Get(d) {
-					flag = "-D"
-				}
-				return []string{
-					fmt.Sprintf("git branch %s %s", flag, branchArg.Get(d)),
-				}, nil
-			}),
-		),
-
-		// Diff
-		"d": command.SerialNodes(
-			command.Description("Diff"),
-			command.NewFlagNode(
-				mainFlag,
-				whitespaceFlag,
+			// Squash
+			"q": command.CacheNode(commitCacheKey, g, command.SerialNodes(
+				command.Description("Squash local commits"),
+				command.FlagNode(
+					nvFlag,
+					pushFlag,
+				),
+				messageArg,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					// TODO: Fix and test this
+					// TODO: also make sure to combine with "&&" if relevant
+					r := []string{
+						fmt.Sprintf("git reset --soft HEAD~3 && git commit -m %q", strings.Join(messageArg.Get(d), " ")),
+					}
+					r = append(r, nvFlag.Get(d))
+					if pushFlag.Get(d) {
+						r = append(r, "&& git push")
+					}
+					r = append(r, "&& echo Success!")
+					return []string{strings.Join(r, " ")}, nil
+				})),
 			),
-			diffArgs,
-			repoName,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				branch := "--"
-				if mainFlag.Get(d) {
-					branch = g.defualtBranch(d)
-				}
-				return []string{
-					fmt.Sprintf("git diff %s %s %s", whitespaceFlag.Get(d), branch, strings.Join(diffArgs.Get(d), " ")),
-				}, nil
-			}),
-		),
 
-		// Undo change
-		"uc": command.SerialNodes(
-			command.Description("Undo change"),
-			ucArgs,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				return []string{
-					fmt.Sprintf("git checkout -- %s", strings.Join(ucArgs.Get(d), " ")),
-				}, nil
-			}),
-		),
+			// Checkout branch
+			"ch": command.SerialNodes(
+				command.Description("Checkout new branch"),
+				command.FlagNode(
+					newBranchFlag,
+				),
+				branchArg,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					flag := ""
+					if newBranchFlag.Get(d) {
+						flag = "-b "
+					}
+					return []string{
+						fmt.Sprintf("git checkout %s%s", flag, branchArg.Get(d)),
+					}, nil
+				}),
+			),
 
-		// Undo add
-		"ua": command.SerialNodes(
-			command.Description("Undo add"),
-			uaArgs,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				return []string{
-					fmt.Sprintf("git reset %s", strings.Join(ucArgs.Get(d), " ")),
-				}, nil
-			}),
-		),
+			// Delete branch
+			"bd": command.SerialNodes(
+				command.Description("Delete branch"),
+				command.FlagNode(forceDelete),
+				branchArg,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					flag := "-d"
+					if forceDelete.Get(d) {
+						flag = "-D"
+					}
+					return []string{
+						fmt.Sprintf("git branch %s %s", flag, branchArg.Get(d)),
+					}, nil
+				}),
+			),
 
-		// Status
-		"s": command.SerialNodes(
-			command.Description("Status"),
-			statusFilesArg,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				return []string{fmt.Sprintf("git status %s", strings.Join(statusFilesArg.Get(d), " "))}, nil
-			}),
-		),
+			// Diff
+			"d": command.SerialNodes(
+				command.Description("Diff"),
+				command.FlagNode(
+					mainFlag,
+					whitespaceFlag,
+				),
+				diffArgs,
+				repoName,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					branch := "--"
+					if mainFlag.Get(d) {
+						branch = g.defualtBranch(d)
+					}
+					return []string{
+						fmt.Sprintf("git diff %s %s %s", whitespaceFlag.Get(d), branch, strings.Join(diffArgs.Get(d), " ")),
+					}, nil
+				}),
+			),
 
-		// Add
-		"a": command.SerialNodes(
-			command.Description("Add"),
-			filesArg,
-			command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-				fs := filesArg.Get(d)
-				if len(fs) == 0 {
-					return []string{"git add ."}, nil
-				}
-				return []string{fmt.Sprintf("git add %s", strings.Join(fs, " "))}, nil
-			}),
-		),
-	}, nil, command.BranchSynonyms(map[string][]string{
-		"l": {"pl"},
-	}))
+			// Undo change
+			"uc": command.SerialNodes(
+				command.Description("Undo change"),
+				ucArgs,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					return []string{
+						fmt.Sprintf("git checkout -- %s", strings.Join(ucArgs.Get(d), " ")),
+					}, nil
+				}),
+			),
+
+			// Undo add
+			"ua": command.SerialNodes(
+				command.Description("Undo add"),
+				uaArgs,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					return []string{
+						fmt.Sprintf("git reset %s", strings.Join(ucArgs.Get(d), " ")),
+					}, nil
+				}),
+			),
+
+			// Status
+			"s": command.SerialNodes(
+				command.Description("Status"),
+				statusFilesArg,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					return []string{fmt.Sprintf("git status %s", strings.Join(statusFilesArg.Get(d), " "))}, nil
+				}),
+			),
+
+			// Add
+			"a": command.SerialNodes(
+				command.Description("Add"),
+				filesArg,
+				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+					fs := filesArg.Get(d)
+					if len(fs) == 0 {
+						return []string{"git add ."}, nil
+					}
+					return []string{fmt.Sprintf("git add %s", strings.Join(fs, " "))}, nil
+				}),
+			),
+		},
+		Synonyms: command.BranchSynonyms(map[string][]string{
+			"l": {"pl"},
+		}),
+	})
 }
