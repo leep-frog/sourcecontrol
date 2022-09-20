@@ -36,13 +36,16 @@ var (
 	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompleter)
 	statusCompleter = PrefixCompleter[[]string]("..")
 	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompleter)
-	repoName        = command.NewBashCommand[string]("REPO", []string{"git rev-parse --show-toplevel | xargs basename"})
-	defRepoArg      = command.Arg[string]("DEFAULT_BRANCH", "Default branch for this git repo")
-	forceDelete     = command.BoolFlag("force-delete", 'f', "force delete the branch")
-	globalConfig    = command.BoolFlag("global", 'g', "Whether or not to change the global setting")
-	newBranchFlag   = command.BoolFlag("new-branch", 'n', "Whether or not to checkout a new branch")
-	whitespaceFlag  = command.BoolValueFlag("whitespace", 'w', "Whether or not to show whitespace in diffs", "-w")
-	uaArgs          = command.ListArg[string](
+	repoName        = &command.BashCommand[string]{
+		ArgName:  "REPO",
+		Contents: []string{"git rev-parse --show-toplevel | xargs basename"},
+	}
+	defRepoArg     = command.Arg[string]("DEFAULT_BRANCH", "Default branch for this git repo")
+	forceDelete    = command.BoolFlag("force-delete", 'f', "force delete the branch")
+	globalConfig   = command.BoolFlag("global", 'g', "Whether or not to change the global setting")
+	newBranchFlag  = command.BoolFlag("new-branch", 'n', "Whether or not to checkout a new branch")
+	whitespaceFlag = command.BoolValueFlag("whitespace", 'w', "Whether or not to show whitespace in diffs", "-w")
+	uaArgs         = command.ListArg[string](
 		"FILE", "Files to un-add",
 		1, command.UnboundedList,
 		// PrefixCompleter[[]string]("[^ ]."),
@@ -171,7 +174,11 @@ func PrefixCompleterScript(prefixCode string) []string {
 
 func PrefixCompleter[T any](prefixCode string) command.Completer[T] {
 	return command.CompleterFromFunc(func(t T, d *command.Data) (*command.Completion, error) {
-		results, err := command.NewBashCommand[[]string]("opts", PrefixCompleterScript(prefixCode)).Run(nil, d)
+		bc := &command.BashCommand[[]string]{
+			ArgName:  "opts",
+			Contents: PrefixCompleterScript(prefixCode),
+		}
+		results, err := bc.Run(nil, d)
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +282,11 @@ func (g *git) Node() *command.Node {
 			"edo": command.SerialNodes(
 				command.Description("Adds local changes to the previous commit"),
 				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
-					s, err := command.NewBashCommand[string]("", []string{`git log -1 --pretty=%B`}, command.HideStderr[string]()).Run(nil, d)
+					bc := &command.BashCommand[string]{
+						Contents:   []string{`git log -1 --pretty=%B`},
+						HideStderr: true,
+					}
+					s, err := bc.Run(nil, d)
 					if err != nil {
 						return nil, o.Annotatef(err, "failed to get previous commit message")
 					}
