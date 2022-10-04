@@ -659,6 +659,25 @@ func TestExecution(t *testing.T) {
 			},
 		},
 		{
+			name: "diff against last commit",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"d", "-c"},
+				RunResponses: []*command.FakeRun{{
+					Stdout: []string{"test-repo"},
+				}},
+				WantRunContents: [][]string{repoRunContents()},
+				WantData: &command.Data{Values: map[string]interface{}{
+					repoName.Name():       "test-repo",
+					prevCommitFlag.Name(): true,
+				}},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git diff  "$(git rev-parse @~1)" `,
+					},
+				},
+			},
+		},
+		{
 			name: "diff with whitespace flag",
 			etc: &command.ExecuteTestCase{
 				Args: []string{"d", "-w"},

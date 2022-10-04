@@ -32,6 +32,7 @@ var (
 		BranchCompleter(),
 	)
 	mainFlag        = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
+	prevCommitFlag  = command.BoolFlag("commit", 'c', "Whether to diff against the previous commit")
 	addCompleter    = PrefixCompleter[[]string](".[^ ]")
 	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompleter)
 	statusCompleter = PrefixCompleter[[]string]("..")
@@ -437,6 +438,7 @@ func (g *git) Node() *command.Node {
 				command.Description("Diff"),
 				command.FlagNode(
 					mainFlag,
+					prevCommitFlag,
 					whitespaceFlag,
 				),
 				diffArgs,
@@ -445,6 +447,9 @@ func (g *git) Node() *command.Node {
 					branch := "--"
 					if mainFlag.Get(d) {
 						branch = g.defualtBranch(d)
+					}
+					if prevCommitFlag.Get(d) {
+						branch = `"$(git rev-parse @~1)"`
 					}
 					return []string{
 						fmt.Sprintf("git diff %s %s %s", whitespaceFlag.Get(d), branch, strings.Join(diffArgs.Get(d), " ")),
