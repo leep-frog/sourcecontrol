@@ -90,7 +90,6 @@ func GitAliasers() sourcerer.Option {
 		"guc":  {"g", "uc"},
 		"gua":  {"g", "ua"},
 		"ch":   {"g", "ch"},
-		"gsh":  {"g", "sh"},
 		"sq":   {"g", "q"},
 		"gbd":  {"g", "bd"},
 		"glg":  {"g", "lg"},
