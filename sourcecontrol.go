@@ -10,12 +10,8 @@ import (
 
 const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
-	// Parentheses execute the commands in a subshell
-	// Using brackets for these binary groupings ensures
-	// the proper environment variables are set in the
-	// current bash session.
-	// This should always be used with FunctionWrap (see sshNode) since it returns an exit code upon failure.
-	createSSHAgentCommand = "{ ps -p $SSH_AGENT_PID > /dev/null && ssh-add -l > /dev/null ; } || { echo Creating new ssh agent... && eval `ssh-agent` && ssh-add ; } || { return 1 ; }"
+	// See https://github.com/leep-frog/ssh
+	createSSHAgentCommand = "gsh"
 )
 
 var (
