@@ -94,6 +94,8 @@ func GitAliasers() sourcerer.Option {
 		"gbd":  {"g", "bd"},
 		"glg":  {"g", "lg"},
 		"gedo": {"g", "edo"},
+		"gop":  {"g", "op"},
+		"gush": {"g", "ush"},
 	})
 }
 
@@ -272,6 +274,14 @@ func (g *git) Node() *command.Node {
 			"f": command.SerialNodes(
 				command.Description("Git fetch"),
 				command.SimpleExecutableNode("git fetch"),
+			),
+			"op": command.SerialNodes(
+				command.Description("Git stash pop"),
+				command.SimpleExecutableNode("git stash pop"),
+			),
+			"ush": command.SerialNodes(
+				command.Description("Git stash push"),
+				command.SimpleExecutableNode("git stash push"),
 			),
 
 			// Complex commands
