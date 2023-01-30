@@ -188,16 +188,16 @@ func PrefixCompleter[T any](prefixCode string) command.Completer[T] {
 	})
 }
 
-func (g *git) Node() *command.Node {
-	return command.AsNode(&command.BranchNode{
-		Branches: map[string]*command.Node{
+func (g *git) Node() command.Node {
+	return &command.BranchNode{
+		Branches: map[string]command.Node{
 			// Configs
 			"cfg": command.SerialNodes(
 				command.Description("Config settings"),
-				command.AsNode(&command.BranchNode{
-					Branches: map[string]*command.Node{
-						"main": command.AsNode(&command.BranchNode{
-							Branches: map[string]*command.Node{
+				&command.BranchNode{
+					Branches: map[string]command.Node{
+						"main": &command.BranchNode{
+							Branches: map[string]command.Node{
 								"show": command.SerialNodes(
 									&command.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
 										o.Stdoutf("Global main: %s\n", g.DefaultBranch)
@@ -233,8 +233,8 @@ func (g *git) Node() *command.Node {
 										return nil
 									}},
 								),
-							}}),
-					}}),
+							}},
+					}},
 			),
 
 			// Simple commands
@@ -507,8 +507,8 @@ func (g *git) Node() *command.Node {
 			),
 
 			// Rebase
-			"rb": command.AsNode(&command.BranchNode{
-				Branches: map[string]*command.Node{
+			"rb": &command.BranchNode{
+				Branches: map[string]command.Node{
 					"a": command.SerialNodes(
 						command.Description("Abort"),
 						command.SimpleExecutableNode("git rebase --abort"),
@@ -520,10 +520,10 @@ func (g *git) Node() *command.Node {
 						command.EchoExecuteData(),
 					),
 				},
-			}),
+			},
 		},
 		Synonyms: command.BranchSynonyms(map[string][]string{
 			"l": {"pl"},
 		}),
-	})
+	}
 }
