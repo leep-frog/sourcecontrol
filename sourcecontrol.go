@@ -505,6 +505,22 @@ func (g *git) Node() *command.Node {
 					return []string{fmt.Sprintf("git add %s", strings.Join(fs, " "))}, nil
 				}),
 			),
+
+			// Rebase
+			"rb": command.AsNode(&command.BranchNode{
+				Branches: map[string]*command.Node{
+					"a": command.SerialNodes(
+						command.Description("Abort"),
+						command.SimpleExecutableNode("git rebase --abort"),
+						command.EchoExecuteData(),
+					),
+					"c": command.SerialNodes(
+						command.Description("Continue"),
+						command.SimpleExecutableNode("git rebase --continue"),
+						command.EchoExecuteData(),
+					),
+				},
+			}),
 		},
 		Synonyms: command.BranchSynonyms(map[string][]string{
 			"l": {"pl"},

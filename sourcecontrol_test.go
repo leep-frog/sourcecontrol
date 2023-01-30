@@ -696,6 +696,31 @@ func TestExecution(t *testing.T) {
 				},
 			},
 		},
+		// Rebase tests
+		{
+			name: "Rebase abort",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"rb", "a"},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git rebase --abort`,
+					},
+				},
+				WantStdout: "git rebase --abort\n",
+			},
+		},
+		{
+			name: "Rebase abort",
+			etc: &command.ExecuteTestCase{
+				Args: []string{"rb", "c"},
+				WantExecuteData: &command.ExecuteData{
+					Executable: []string{
+						`git rebase --continue`,
+					},
+				},
+				WantStdout: "git rebase --continue\n",
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if test.g == nil {
