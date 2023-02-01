@@ -17,7 +17,7 @@ const (
 var (
 	sshNode = command.SerialNodes(
 		command.FunctionWrap(),
-		command.SimpleExecutableNode(createSSHAgentCommand),
+		command.SimpleExecutableProcessor(createSSHAgentCommand),
 	)
 	nvFlag     = command.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
 	pushFlag   = command.BoolFlag("push", 'p', "Whether or not to push afterwards")
@@ -240,26 +240,26 @@ func (g *git) Node() command.Node {
 			// Simple commands
 			"b": command.SerialNodes(
 				command.Description("Branch"),
-				command.SimpleExecutableNode("git branch"),
+				command.SimpleExecutableProcessor("git branch"),
 			),
 			"l": command.SerialNodes(
 				command.Description("Pull"),
 				sshNode,
-				command.SimpleExecutableNode(
+				command.SimpleExecutableProcessor(
 					"git pull",
 				),
 			),
 			"p": command.SerialNodes(
 				command.Description("Push"),
 				sshNode,
-				command.SimpleExecutableNode(
+				command.SimpleExecutableProcessor(
 					"git push",
 				),
 			),
 			"pp": command.SerialNodes(
 				command.Description("Pull and push"),
 				sshNode,
-				command.SimpleExecutableNode(
+				command.SimpleExecutableProcessor(
 					"git pull && git push",
 				),
 			),
@@ -269,25 +269,25 @@ func (g *git) Node() command.Node {
 			),
 			"uco": command.SerialNodes(
 				command.Description("Undo commit"),
-				command.SimpleExecutableNode("git reset HEAD~"),
+				command.SimpleExecutableProcessor("git reset HEAD~"),
 			),
 			"f": command.SerialNodes(
 				command.Description("Git fetch"),
-				command.SimpleExecutableNode("git fetch"),
+				command.SimpleExecutableProcessor("git fetch"),
 			),
 			"op": command.SerialNodes(
 				command.Description("Git stash pop"),
-				command.SimpleExecutableNode("git stash pop"),
+				command.SimpleExecutableProcessor("git stash pop"),
 			),
 			"ush": command.SerialNodes(
 				command.Description("Git stash push"),
-				command.SimpleExecutableNode("git stash push"),
+				command.SimpleExecutableProcessor("git stash push"),
 			),
 
 			// Complex commands
 			"edo": command.SerialNodes(
 				command.Description("Adds local changes to the previous commit"),
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					bc := &command.BashCommand[string]{
 						Contents:   []string{`git log -1 --pretty=%B`},
 						HideStderr: true,
@@ -306,7 +306,7 @@ func (g *git) Node() command.Node {
 			"lg": command.SerialNodes(
 				command.Description("Git log"),
 				gitLogArg,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
 						fmt.Sprintf("git log -n %d", gitLogArg.Get(d)),
 					}, nil
@@ -316,7 +316,7 @@ func (g *git) Node() command.Node {
 			"m": command.SerialNodes(
 				command.Description("Checkout main"),
 				repoName,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
 						fmt.Sprintf("git checkout %s", g.defualtBranch(d)),
 					}, nil
@@ -326,7 +326,7 @@ func (g *git) Node() command.Node {
 			"mm": command.SerialNodes(
 				command.Description("Merge main"),
 				repoName,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
 						fmt.Sprintf("git merge %s", g.defualtBranch(d)),
 					}, nil
@@ -346,7 +346,7 @@ func (g *git) Node() command.Node {
 						return pushFlag.Get(d)
 					},
 				),
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					r := []string{
 						fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
 					}
@@ -370,7 +370,7 @@ func (g *git) Node() command.Node {
 				),
 				messageArg,
 				sshNode,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
 						strings.Join([]string{
 							fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
@@ -389,7 +389,7 @@ func (g *git) Node() command.Node {
 					pushFlag,
 				),
 				messageArg,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					// TODO: Fix and test this
 					// TODO: also make sure to combine with "&&" if relevant
 					r := []string{
@@ -411,7 +411,7 @@ func (g *git) Node() command.Node {
 					newBranchFlag,
 				),
 				branchArg,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					flag := ""
 					if newBranchFlag.Get(d) {
 						flag = "-b "
@@ -427,7 +427,7 @@ func (g *git) Node() command.Node {
 				command.Description("Delete branch"),
 				command.FlagProcessor(forceDelete),
 				branchArg,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					flag := "-d"
 					if forceDelete.Get(d) {
 						flag = "-D"
@@ -448,7 +448,7 @@ func (g *git) Node() command.Node {
 				),
 				diffArgs,
 				repoName,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					branch := "--"
 					if mainFlag.Get(d) {
 						branch = g.defualtBranch(d)
@@ -466,7 +466,7 @@ func (g *git) Node() command.Node {
 			"uc": command.SerialNodes(
 				command.Description("Undo change"),
 				ucArgs,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
 						fmt.Sprintf("git checkout -- %s", strings.Join(ucArgs.Get(d), " ")),
 					}, nil
@@ -477,7 +477,7 @@ func (g *git) Node() command.Node {
 			"ua": command.SerialNodes(
 				command.Description("Undo add"),
 				uaArgs,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
 						fmt.Sprintf("git reset %s", strings.Join(ucArgs.Get(d), " ")),
 					}, nil
@@ -488,7 +488,7 @@ func (g *git) Node() command.Node {
 			"s": command.SerialNodes(
 				command.Description("Status"),
 				statusFilesArg,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{fmt.Sprintf("git status %s", strings.Join(statusFilesArg.Get(d), " "))}, nil
 				}),
 			),
@@ -497,7 +497,7 @@ func (g *git) Node() command.Node {
 			"a": command.SerialNodes(
 				command.Description("Add"),
 				filesArg,
-				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					fs := filesArg.Get(d)
 					if len(fs) == 0 {
 						return []string{"git add ."}, nil
@@ -511,12 +511,12 @@ func (g *git) Node() command.Node {
 				Branches: map[string]command.Node{
 					"a": command.SerialNodes(
 						command.Description("Abort"),
-						command.SimpleExecutableNode("git rebase --abort"),
+						command.SimpleExecutableProcessor("git rebase --abort"),
 						command.EchoExecuteData(),
 					),
 					"c": command.SerialNodes(
 						command.Description("Continue"),
-						command.SimpleExecutableNode("git rebase --continue"),
+						command.SimpleExecutableProcessor("git rebase --continue"),
 						command.EchoExecuteData(),
 					),
 				},
