@@ -208,7 +208,7 @@ func (g *git) Node() command.Node {
 									}},
 								),
 								"set": command.SerialNodes(
-									command.FlagNode(globalConfig),
+									command.FlagProcessor(globalConfig),
 									repoName,
 									defRepoArg,
 									&command.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
@@ -335,7 +335,7 @@ func (g *git) Node() command.Node {
 			// Commit
 			"c": command.SerialNodes(
 				command.Description("Commit"),
-				command.FlagNode(
+				command.FlagProcessor(
 					nvFlag,
 					pushFlag,
 				),
@@ -365,7 +365,7 @@ func (g *git) Node() command.Node {
 			// Commit & push
 			"cp": command.SerialNodes(
 				command.Description("Commit and push"),
-				command.FlagNode(
+				command.FlagProcessor(
 					nvFlag,
 				),
 				messageArg,
@@ -384,7 +384,7 @@ func (g *git) Node() command.Node {
 			// Squash
 			"q": command.CacheNode(commitCacheKey, g, command.SerialNodes(
 				command.Description("Squash local commits"),
-				command.FlagNode(
+				command.FlagProcessor(
 					nvFlag,
 					pushFlag,
 				),
@@ -407,7 +407,7 @@ func (g *git) Node() command.Node {
 			// Checkout branch
 			"ch": command.SerialNodes(
 				command.Description("Checkout new branch"),
-				command.FlagNode(
+				command.FlagProcessor(
 					newBranchFlag,
 				),
 				branchArg,
@@ -425,7 +425,7 @@ func (g *git) Node() command.Node {
 			// Delete branch
 			"bd": command.SerialNodes(
 				command.Description("Delete branch"),
-				command.FlagNode(forceDelete),
+				command.FlagProcessor(forceDelete),
 				branchArg,
 				command.ExecutableNode(func(o command.Output, d *command.Data) ([]string, error) {
 					flag := "-d"
@@ -441,7 +441,7 @@ func (g *git) Node() command.Node {
 			// Diff
 			"d": command.SerialNodes(
 				command.Description("Diff"),
-				command.FlagNode(
+				command.FlagProcessor(
 					mainFlag,
 					prevCommitFlag,
 					whitespaceFlag,
