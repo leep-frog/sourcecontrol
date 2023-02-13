@@ -71,8 +71,8 @@ func BranchCompleter() command.Completer[string] {
 
 func GitAliasers() sourcerer.Option {
 	return sourcerer.Aliasers(map[string][]string{
-		"gp":   {"g", "p"},
-		"gl":   {"g", "l"},
+		"gp": {"g", "p"},
+		// Don't include 'gl' since that is an alias of goleep
 		"gpl":  {"g", "pl"},
 		"gs":   {"g", "s"},
 		"guco": {"g", "uco"},
