@@ -162,7 +162,7 @@ func (g *git) MarkChanged() {
 func PrefixCompleterScript(prefixCode string) []string {
 	return []string{
 		fmt.Sprintf(`results="$(git status --porcelain | grep "%s" | cut -c 4-)";`, prefixCode),
-		`toplevel="$(git rev-parse --show-toplevel)";`,
+		`toplevel="$(git rev-parse --show-toplevel | sed 's/C:/\/c/g')";`,
 		`for git_path in $results;`,
 		`do`,
 		`    realpath --relative-to="." "$toplevel/$git_path";`,
