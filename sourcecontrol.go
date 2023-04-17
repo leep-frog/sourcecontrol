@@ -12,7 +12,7 @@ import (
 const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
 	// See https://github.com/leep-frog/ssh
-	createSSHAgentCommand = "gsh"
+	createSSHAgentCommand = "ssh-add"
 )
 
 var (
