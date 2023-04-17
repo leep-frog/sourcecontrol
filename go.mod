@@ -2,7 +2,7 @@ module github.com/leep-frog/sourcecontrol
 
 go 1.18
 
-require github.com/leep-frog/command v0.0.0-20230417144055-357781ec02ba
+require github.com/leep-frog/command v0.0.0-20230417213135-9b98dd054678
 
 require (
 	github.com/google/go-cmp v0.5.5 // indirect
