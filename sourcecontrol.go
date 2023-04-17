@@ -2,6 +2,7 @@ package sourcecontrol
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/leep-frog/command"
@@ -33,9 +34,14 @@ var (
 	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompleter)
 	statusCompleter = PrefixCompleter[[]string]("..")
 	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompleter)
-	repoName        = &command.BashCommand[string]{
-		ArgName:  "REPO",
-		Contents: []string{"git rev-parse --show-toplevel | xargs basename"},
+	repoName        = &command.ShellCommand[string]{
+		ArgName:     "REPO",
+		CommandName: "git",
+		Args: []string{
+			"config",
+			"--get",
+			"remote.origin.url",
+		},
 	}
 	defRepoArg     = command.Arg[string]("DEFAULT_BRANCH", "Default branch for this git repo")
 	forceDelete    = command.BoolFlag("force-delete", 'f', "force delete the branch")
@@ -46,12 +52,12 @@ var (
 		"FILE", "Files to un-add",
 		1, command.UnboundedList,
 		// PrefixCompleter[[]string]("[^ ]."),
-		command.BashCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --cached --name-only --relative"),
+		command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--cached", "--name-only", "--relative"),
 	)
 	diffArgs = command.ListArg[string](
 		"FILE", "Files to diff",
 		0, command.UnboundedList,
-		command.BashCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git diff --name-only --relative"),
+		command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--name-only", "--relative"),
 	)
 	ucArgs = command.ListArg[string](
 		"FILE", "Files to un-change",
@@ -66,7 +72,21 @@ func CLI() *git {
 }
 
 func BranchCompleter() command.Completer[string] {
-	return command.BashCompleter[string](`git branch | grep -v "\*"`)
+	return command.CompleterFromFunc(func(s string, d *command.Data) (*command.Completion, error) {
+		c, err := command.ShellCommandCompleter[string](`git branch | grep -v "\*"`).Complete(s, d)
+		if c == nil || err != nil {
+			return c, err
+		}
+
+		var r []string
+		for _, s := range c.Suggestions {
+			if !strings.Contains(s, "*") {
+				r = append(r, s)
+			}
+		}
+		c.Suggestions = r
+		return c, nil
+	})
 }
 
 func GitAliasers() sourcerer.Option {
@@ -159,30 +179,38 @@ func (g *git) MarkChanged() {
 	g.changed = true
 }
 
-func PrefixCompleterScript(prefixCode string) []string {
-	return []string{
-		fmt.Sprintf(`results="$(git status --porcelain | grep "%s" | cut -c 4-)";`, prefixCode),
-		`toplevel="$(git rev-parse --show-toplevel | sed 's/C:/\/c/g')";`,
-		`for git_path in $results;`,
-		`do`,
-		`    realpath --relative-to="." "$toplevel/$git_path";`,
-		`done;`,
-	}
-}
-
 func PrefixCompleter[T any](prefixCode string) command.Completer[T] {
 	return command.CompleterFromFunc(func(t T, d *command.Data) (*command.Completion, error) {
-		bc := &command.BashCommand[[]string]{
-			ArgName:  "opts",
-			Contents: PrefixCompleterScript(prefixCode),
+		prefixRegex := regexp.MustCompile(prefixCode)
+		bc := &command.ShellCommand[[]string]{
+			ArgName:     "opts",
+			CommandName: "git",
+			Args: []string{
+				"status",
+				// Note: this requires that `git config status.relativePaths true`
+				"--porcelain=v2",
+			},
 		}
 		results, err := bc.Run(nil, d)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get git status: %v", err)
+		}
+
+		var suggestions []string
+		for _, result := range results {
+			// 1 .M ... 100644 100644 100644 e1548292489441c42682f38f2590e24d66a8587a e1548292489441c42682f38f2590e24d66a8587a sourcecontrol.go
+			// Format is
+			parts := strings.Split(result, " ")
+			code := parts[1]
+			// if file has a space in the name, we need to rejoin int
+			file := strings.Join(parts[8:], " ")
+			if prefixRegex.MatchString(code) {
+				suggestions = append(suggestions, file)
+			}
 		}
 		return &command.Completion{
 			Distinct:        true,
-			Suggestions:     results,
+			Suggestions:     suggestions,
 			CaseInsensitive: true,
 		}, nil
 	})
@@ -288,8 +316,13 @@ func (g *git) Node() command.Node {
 			"edo": command.SerialNodes(
 				command.Description("Adds local changes to the previous commit"),
 				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					bc := &command.BashCommand[string]{
-						Contents:   []string{`git log -1 --pretty=%B`},
+					bc := &command.ShellCommand[string]{
+						CommandName: "git",
+						Args: []string{
+							"log",
+							"-1",
+							"--pretty=%B",
+						},
 						HideStderr: true,
 					}
 					s, err := bc.Run(nil, d)

@@ -8,8 +8,15 @@ import (
 	"github.com/leep-frog/command"
 )
 
-func repoRunContents() []string {
-	return []string{"set -e", "set -o pipefail", "git rev-parse --show-toplevel | xargs basename"}
+func repoRunContents() *command.RunContents {
+	return &command.RunContents{
+		Name: "git",
+		Args: []string{
+			"config",
+			"--get",
+			"remote.origin.url",
+		},
+	}
 }
 
 func TestExecution(t *testing.T) {
@@ -62,10 +69,13 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"my previous commit message"},
 				}},
-				WantRunContents: [][]string{{
-					"set -e",
-					"set -o pipefail",
-					`git log -1 --pretty=%B`,
+				WantRunContents: []*command.RunContents{{
+					Name: "git",
+					Args: []string{
+						"log",
+						"-1",
+						"--pretty=%B",
+					},
 				}},
 				WantExecuteData: &command.ExecuteData{
 					Executable: []string{
@@ -81,13 +91,12 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Err: fmt.Errorf("oops"),
 				}},
-				WantRunContents: [][]string{{
-					"set -e",
-					"set -o pipefail",
-					`git log -1 --pretty=%B`,
+				WantRunContents: []*command.RunContents{{
+					Name: "git",
+					Args: []string{"log", "-1", "--pretty=%B"},
 				}},
-				WantStderr: "failed to get previous commit message: failed to execute bash command: oops\n",
-				WantErr:    fmt.Errorf("failed to get previous commit message: failed to execute bash command: oops"),
+				WantStderr: "failed to get previous commit message: failed to execute shell command: oops\n",
+				WantErr:    fmt.Errorf("failed to get previous commit message: failed to execute shell command: oops"),
 			},
 		},
 		// Git log
@@ -127,7 +136,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name(): "test-repo",
 				}},
@@ -148,7 +157,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name(): "test-repo",
 				}},
@@ -172,7 +181,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name(): "test-repo",
 				}},
@@ -191,7 +200,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name(): "test-repo",
 				}},
@@ -212,7 +221,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name(): "test-repo",
 				}},
@@ -236,7 +245,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name(): "test-repo",
 				}},
@@ -606,7 +615,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name(): "test-repo",
 				}},
@@ -624,7 +633,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name(): "test-repo",
 					diffArgs.Name(): []string{
@@ -646,7 +655,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name(): "test-repo",
 					mainFlag.Name(): true,
@@ -665,7 +674,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name():       "test-repo",
 					prevCommitFlag.Name(): true,
@@ -684,7 +693,7 @@ func TestExecution(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"test-repo"},
 				}},
-				WantRunContents: [][]string{repoRunContents()},
+				WantRunContents: []*command.RunContents{repoRunContents()},
 				WantData: &command.Data{Values: map[string]interface{}{
 					repoName.Name():       "test-repo",
 					whitespaceFlag.Name(): "-w",
