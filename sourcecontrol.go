@@ -9,11 +9,42 @@ import (
 	"github.com/leep-frog/command/sourcerer"
 )
 
+func joinByOS(cmds ...string) ([]string, error) {
+	switch sourcerer.CurrentOS.Name() {
+	case "linux":
+		return []string{strings.Join(cmds, " && ")}, nil
+	case "windows":
+		var wr []string
+		for _, c := range cmds {
+			wr = append(wr, wCmd(c))
+		}
+		return wr, nil
+	}
+	return nil, fmt.Errorf("Unknown OS (%q)", sourcerer.CurrentOS.Name())
+}
+
+func executableJoinByOS(cmds ...string) command.Processor {
+	return command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+		s, err := joinByOS(cmds...)
+		return s, o.Err(err)
+	})
+}
+
 const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
 	// See https://github.com/leep-frog/ssh
 	createSSHAgentCommand = "ssh-add"
+
+	linuxOS   = "linux"
+	windowsOS = "windows"
 )
+
+func wCmd(s string) string {
+	return strings.Join([]string{
+		s,
+		fmt.Sprintf("if (!$?) { throw %q }", fmt.Sprintf("Command failed: %s", s)),
+	}, "\n")
+}
 
 var (
 	sshNode = command.SerialNodes(
@@ -287,9 +318,11 @@ func (g *git) Node() command.Node {
 			"pp": command.SerialNodes(
 				command.Description("Pull and push"),
 				sshNode,
-				command.SimpleExecutableProcessor(
-					"git pull && git push",
+				executableJoinByOS(
+					"git pull",
+					"git push",
 				),
+				command.SimpleExecutableProcessor(),
 			),
 			"sh": command.SerialNodes(
 				command.Description("Create ssh-agent"),
@@ -330,9 +363,11 @@ func (g *git) Node() command.Node {
 						return nil, o.Annotatef(err, "failed to get previous commit message")
 					}
 
-					return []string{
-						fmt.Sprintf("guco && ga . && gc %q", s),
-					}, nil
+					return joinByOS(
+						"guco",
+						"ga .",
+						fmt.Sprintf("gc %q", s),
+					)
 				}),
 			),
 			// Git log
@@ -389,9 +424,8 @@ func (g *git) Node() command.Node {
 						)
 					}
 					r = append(r, "echo Success!")
-					return []string{
-						strings.Join(r, " && "),
-					}, nil
+
+					return joinByOS(r...)
 				}),
 			),
 
@@ -404,13 +438,11 @@ func (g *git) Node() command.Node {
 				messageArg,
 				sshNode,
 				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					return []string{
-						strings.Join([]string{
-							fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
-							"git push",
-							"echo Success!",
-						}, " && "),
-					}, nil
+					return joinByOS(
+						fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
+						"git push",
+						"echo Success!",
+					)
 				}),
 			),
 
@@ -426,14 +458,14 @@ func (g *git) Node() command.Node {
 					// TODO: Fix and test this
 					// TODO: also make sure to combine with "&&" if relevant
 					r := []string{
-						fmt.Sprintf("git reset --soft HEAD~3 && git commit -m %q", strings.Join(messageArg.Get(d), " ")),
+						"git reset --soft HEAD~3",
+						fmt.Sprintf("git commit -m %q %s", strings.Join(messageArg.Get(d), " "), nvFlag.Get(d)),
 					}
-					r = append(r, nvFlag.Get(d))
 					if pushFlag.Get(d) {
-						r = append(r, "&& git push")
+						r = append(r, "git push")
 					}
-					r = append(r, "&& echo Success!")
-					return []string{strings.Join(r, " ")}, nil
+					r = append(r, "echo Success!")
+					return joinByOS(r...)
 				})),
 			),
 
