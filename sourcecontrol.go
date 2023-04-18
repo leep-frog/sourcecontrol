@@ -42,7 +42,8 @@ const (
 func wCmd(s string) string {
 	return strings.Join([]string{
 		s,
-		fmt.Sprintf("if (!$?) { throw %q }", fmt.Sprintf("Command failed: %s", s)),
+		// Windows escapes quotes with backtick, hence why '%q' alone isn't sufficient here
+		fmt.Sprintf("if (!$?) { throw %q }", fmt.Sprintf("Command failed: %s", strings.ReplaceAll(s, `"`, "'"))),
 	}, "\n")
 }
 
