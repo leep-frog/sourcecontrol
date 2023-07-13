@@ -336,7 +336,7 @@ func TestExecution(t *testing.T) {
 				osChecks: map[string]*osCheck{
 					"windows": {
 						wantExecutable: []string{
-							"ssh-add",
+							createSSHAgentCommand,
 							wCmd(`git commit -m "did things"`),
 							wCmd(`git push`),
 							wCmd("echo Success!"),

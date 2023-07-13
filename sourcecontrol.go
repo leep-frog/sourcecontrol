@@ -33,10 +33,8 @@ func executableJoinByOS(cmds ...string) command.Processor {
 const (
 	commitCacheKey = "COMMIT_CACHE_KEY"
 	// See https://github.com/leep-frog/ssh
-	createSSHAgentCommand = "ssh-add"
-
-	linuxOS   = "linux"
-	windowsOS = "windows"
+	// createSSHAgentCommand = "ssh-add"
+	createSSHAgentCommand = ""
 )
 
 func wCmd(s string) string {
