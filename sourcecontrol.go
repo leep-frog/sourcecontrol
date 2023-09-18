@@ -94,7 +94,8 @@ var (
 		1, command.UnboundedList,
 		PrefixCompleter[[]string](".[^ ]"),
 	)
-	gitLogArg = command.OptionalArg[int]("N", "Number of git logs to display", command.Positive[int](), command.Default(1))
+	gitLogArg      = command.OptionalArg[int]("N", "Number of git logs to display", command.Positive[int](), command.Default(1))
+	gitLogDiffFlag = command.BoolFlag("diff", 'd', "Whether or not to diff the current changes against N commits prior")
 )
 
 func CLI() *git {
@@ -372,8 +373,16 @@ func (g *git) Node() command.Node {
 			// Git log
 			"lg": command.SerialNodes(
 				command.Description("Git log"),
+				command.FlagProcessor(
+					gitLogDiffFlag,
+				),
 				gitLogArg,
 				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+					if gitLogDiffFlag.Get(d) {
+						return []string{
+							fmt.Sprintf("git diff HEAD~%d", gitLogArg.Get(d)-1),
+						}, nil
+					}
 					return []string{
 						fmt.Sprintf("git log -n %d", gitLogArg.Get(d)),
 					}, nil

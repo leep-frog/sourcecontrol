@@ -149,6 +149,36 @@ func TestExecution(t *testing.T) {
 					},
 				},
 			},
+			{
+				name: "git log diff with no args",
+				etc: &command.ExecuteTestCase{
+					Args: []string{"lg", "-d"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						gitLogArg.Name():      1,
+						gitLogDiffFlag.Name(): true,
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"git diff HEAD~0",
+						},
+					},
+				},
+			},
+			{
+				name: "git log diff with args",
+				etc: &command.ExecuteTestCase{
+					Args: []string{"lg", "-d", "7"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						gitLogArg.Name():      7,
+						gitLogDiffFlag.Name(): true,
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"git diff HEAD~6",
+						},
+					},
+				},
+			},
 			// Checkout main
 			{
 				name: "checkout main",
