@@ -179,6 +179,57 @@ func TestExecution(t *testing.T) {
 					},
 				},
 			},
+			// Git stash push/pop
+			{
+				name: "git stash push with no args",
+				etc: &command.ExecuteTestCase{
+					Args: []string{"ush"},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"git stash push ",
+						},
+					},
+				},
+			},
+			{
+				name: "git stash pop with no args",
+				etc: &command.ExecuteTestCase{
+					Args: []string{"op"},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"git stash pop ",
+						},
+					},
+				},
+			},
+			{
+				name: "git stash push with args",
+				etc: &command.ExecuteTestCase{
+					Args: []string{"ush", "abc", "123"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						stashArgs.Name(): []string{"abc", "123"},
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git stash push "abc" "123"`,
+						},
+					},
+				},
+			},
+			{
+				name: "git stash pop with args",
+				etc: &command.ExecuteTestCase{
+					Args: []string{"op", "def", "456"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						stashArgs.Name(): []string{"def", "456"},
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git stash pop "def" "456"`,
+						},
+					},
+				},
+			},
 			// Checkout main
 			{
 				name: "checkout main",
@@ -863,4 +914,10 @@ func TestExecution(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestAliasers(t *testing.T) {
+	t.Run("GitAliasers() returns without issues", func(t *testing.T) {
+		GitAliasers()
+	})
 }

@@ -96,6 +96,7 @@ var (
 	)
 	gitLogArg      = command.OptionalArg[int]("N", "Number of git logs to display", command.Positive[int](), command.Default(1))
 	gitLogDiffFlag = command.BoolFlag("diff", 'd', "Whether or not to diff the current changes against N commits prior")
+	stashArgs      = command.ListArg[string]("STASH_ARGS", "Args to pass to `git stash push/pop`", 0, command.UnboundedList)
 )
 
 func CLI() *git {
@@ -172,7 +173,7 @@ func (g *git) Cache() map[string][][]string {
 	return g.Caches
 }
 
-func (g *git) defualtBranch(d *command.Data) string {
+func (g *git) GetDefaultBranch(d *command.Data) string {
 	if g.MainBranches == nil {
 		if len(g.DefaultBranch) == 0 {
 			return "main"
@@ -188,7 +189,7 @@ func (g *git) defualtBranch(d *command.Data) string {
 	return g.DefaultBranch
 }
 
-func (g *git) setDefualtBranch(o command.Output, d *command.Data, v string) {
+func (g *git) setDefaultBranch(o command.Output, d *command.Data, v string) {
 	if g.MainBranches == nil {
 		g.MainBranches = map[string]string{}
 	}
@@ -197,7 +198,7 @@ func (g *git) setDefualtBranch(o command.Output, d *command.Data, v string) {
 	o.Stdoutf("Setting default branch for %s to %s\n", rn, v)
 }
 
-func (g *git) unsetDefualtBranch(o command.Output, d *command.Data) {
+func (g *git) unsetDefaultBranch(o command.Output, d *command.Data) {
 	if g.MainBranches == nil {
 		return
 	}
@@ -274,7 +275,7 @@ func (g *git) Node() command.Node {
 										if globalConfig.Get(d) {
 											g.DefaultBranch = defRepoArg.Get(d)
 										} else {
-											g.setDefualtBranch(o, d, defRepoArg.Get(d))
+											g.setDefaultBranch(o, d, defRepoArg.Get(d))
 										}
 										g.changed = true
 										return nil
@@ -286,7 +287,7 @@ func (g *git) Node() command.Node {
 										if globalConfig.Get(d) {
 											g.DefaultBranch = ""
 										} else {
-											g.unsetDefualtBranch(o, d)
+											g.unsetDefaultBranch(o, d)
 										}
 										g.changed = true
 										return nil
@@ -338,11 +339,29 @@ func (g *git) Node() command.Node {
 			),
 			"op": command.SerialNodes(
 				command.Description("Git stash pop"),
-				command.SimpleExecutableProcessor("git stash pop"),
+				stashArgs,
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+					var r []string
+					for _, c := range stashArgs.Get(d) {
+						r = append(r, fmt.Sprintf("%q", c))
+					}
+					return []string{
+						fmt.Sprintf("git stash pop %s", strings.Join(r, " ")),
+					}, nil
+				}),
 			),
 			"ush": command.SerialNodes(
 				command.Description("Git stash push"),
-				command.SimpleExecutableProcessor("git stash push"),
+				stashArgs,
+				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+					var r []string
+					for _, c := range stashArgs.Get(d) {
+						r = append(r, fmt.Sprintf("%q", c))
+					}
+					return []string{
+						fmt.Sprintf("git stash push %s", strings.Join(r, " ")),
+					}, nil
+				}),
 			),
 
 			// Complex commands
@@ -394,7 +413,7 @@ func (g *git) Node() command.Node {
 				repoName,
 				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
-						fmt.Sprintf("git checkout %s", g.defualtBranch(d)),
+						fmt.Sprintf("git checkout %s", g.GetDefaultBranch(d)),
 					}, nil
 				}),
 			),
@@ -404,7 +423,7 @@ func (g *git) Node() command.Node {
 				repoName,
 				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
-						fmt.Sprintf("git merge %s", g.defualtBranch(d)),
+						fmt.Sprintf("git merge %s", g.GetDefaultBranch(d)),
 					}, nil
 				}),
 			),
@@ -524,7 +543,7 @@ func (g *git) Node() command.Node {
 				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					branch := "--"
 					if mainFlag.Get(d) {
-						branch = g.defualtBranch(d)
+						branch = g.GetDefaultBranch(d)
 					}
 					if prevCommitFlag.Get(d) {
 						branch = `"$(git rev-parse @~1)"`
