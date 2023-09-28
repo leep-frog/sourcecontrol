@@ -62,7 +62,7 @@ var (
 	prevCommitFlag  = command.BoolFlag("commit", 'c', "Whether to diff against the previous commit")
 	addCompleter    = PrefixCompleter[[]string](".[^ ]", true)
 	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompleter)
-	statusCompleter = PrefixCompleter[[]string]("..", false)
+	statusCompleter = PrefixCompleter[[]string]("[^A].", false)
 	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompleter)
 	repoName        = &command.ShellCommand[string]{
 		ArgName:     "REPO",
