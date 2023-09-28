@@ -60,9 +60,9 @@ var (
 	)
 	mainFlag        = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
 	prevCommitFlag  = command.BoolFlag("commit", 'c', "Whether to diff against the previous commit")
-	addCompleter    = PrefixCompleter[[]string](".[^ ]")
+	addCompleter    = PrefixCompleter[[]string](".[^ ]", true)
 	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompleter)
-	statusCompleter = PrefixCompleter[[]string]("..")
+	statusCompleter = PrefixCompleter[[]string]("..", false)
 	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompleter)
 	repoName        = &command.ShellCommand[string]{
 		ArgName:     "REPO",
@@ -92,7 +92,7 @@ var (
 	ucArgs = command.ListArg[string](
 		"FILE", "Files to un-change",
 		1, command.UnboundedList,
-		PrefixCompleter[[]string](".[^ ]"),
+		PrefixCompleter[[]string](".[^ ]", false),
 	)
 	gitLogArg      = command.OptionalArg[int]("N", "Number of git logs to display", command.Positive[int](), command.Default(1))
 	gitLogDiffFlag = command.BoolFlag("diff", 'd', "Whether or not to diff the current changes against N commits prior")
@@ -211,7 +211,7 @@ func (g *git) MarkChanged() {
 	g.changed = true
 }
 
-func PrefixCompleter[T any](prefixCode string) command.Completer[T] {
+func PrefixCompleter[T any](prefixCode string, includeUnknown bool) command.Completer[T] {
 	return command.CompleterFromFunc(func(t T, d *command.Data) (*command.Completion, error) {
 		prefixRegex := regexp.MustCompile(prefixCode)
 		bc := &command.ShellCommand[[]string]{
@@ -230,13 +230,26 @@ func PrefixCompleter[T any](prefixCode string) command.Completer[T] {
 
 		var suggestions []string
 		for _, result := range results {
+			// Format is the following for tracked files
 			// 1 .M ... 100644 100644 100644 e1548292489441c42682f38f2590e24d66a8587a e1548292489441c42682f38f2590e24d66a8587a sourcecontrol.go
-			// Format is
+
+			// Format is the following for untracked files
+			// ? new_file.go
+
 			parts := strings.Split(result, " ")
-			code := parts[1]
+
+			// Check if it's an untracked file
+			if parts[0] == "?" {
+				file := strings.Join(parts[1:], " ")
+				if includeUnknown {
+					suggestions = append(suggestions, file)
+				}
+				continue
+			}
+
 			// if file has a space in the name, we need to rejoin int
 			file := strings.Join(parts[8:], " ")
-			if prefixRegex.MatchString(code) {
+			if prefixRegex.MatchString(parts[1]) {
 				suggestions = append(suggestions, file)
 			}
 		}
