@@ -420,7 +420,8 @@ func (g *git) Node() command.Node {
 				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					if gitLogDiffFlag.Get(d) {
 						return []string{
-							fmt.Sprintf("git diff HEAD~%d", gitLogArg.Get(d)-1),
+							// Default to HEAD~1 because diffing against the same commit is just "gd" behavior.
+							fmt.Sprintf("git diff HEAD~%d", gitLogArg.Get(d)),
 						}, nil
 					}
 					return []string{

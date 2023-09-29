@@ -159,7 +159,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
-							"git diff HEAD~0",
+							"git diff HEAD~1",
 						},
 					},
 				},
@@ -174,7 +174,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
-							"git diff HEAD~6",
+							"git diff HEAD~7",
 						},
 					},
 				},
@@ -686,7 +686,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
-							`git reset file.one some/where/file.2`,
+							`git reset -- file.one some/where/file.2`,
 						},
 					},
 				},
