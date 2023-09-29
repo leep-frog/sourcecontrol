@@ -61,17 +61,14 @@ var (
 	mainFlag       = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
 	prevCommitFlag = command.BoolFlag("commit", 'c', "Whether to diff against the previous commit")
 
-	redFilePrefixPatterns = []*regexp.Regexp{
-		// Any file that hasn't been added
-		regexp.MustCompile("^[^A][^ ]$"),
-		// or files that have been added but since been deleted or modified
-		regexp.MustCompile("^A[DM]$"),
-	}
+	// The two dots represent [file state in the cache (e.g. added/green), file state not in the cache (red file)]
+	redFileCompleter            = PrefixCompleter[[]string](true, regexp.MustCompile(`^.[^\.]$`))
+	greenFileCompleter          = PrefixCompleter[[]string](false, regexp.MustCompile(`^[^\.].$`))
+	redFileCompleterNoDeletes   = command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--name-only", "--relative")
+	greenFileCompleterNoDeletes = command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--cached", "--name-only", "--relative")
 
-	// This prefix matches any red files
-	addCompleter    = PrefixCompleter[[]string](true, redFilePrefixPatterns...)
-	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompleter)
-	statusCompleter = PrefixCompleter[[]string](true, regexp.MustCompile("^..$"))
+	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, redFileCompleter)
+	statusCompleter = PrefixCompleter[[]string](true, regexp.MustCompile(".*"))
 	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompleter)
 	repoName        = &command.ShellCommand[string]{
 		ArgName:     "REPO",
@@ -90,18 +87,17 @@ var (
 	uaArgs         = command.ListArg[string](
 		"FILE", "Files to un-add",
 		1, command.UnboundedList,
-		// PrefixCompleter[[]string]("[^ ]."),
-		command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--cached", "--name-only", "--relative"),
+		greenFileCompleter,
 	)
 	diffArgs = command.ListArg[string](
 		"FILE", "Files to diff",
 		0, command.UnboundedList,
-		command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--name-only", "--relative"),
+		redFileCompleterNoDeletes,
 	)
 	ucArgs = command.ListArg[string](
 		"FILE", "Files to un-change",
 		1, command.UnboundedList,
-		PrefixCompleter[[]string](false, redFilePrefixPatterns...),
+		redFileCompleter,
 	)
 	gitLogArg      = command.OptionalArg[int]("N", "Number of git logs to display", command.Positive[int](), command.Default(1))
 	gitLogDiffFlag = command.BoolFlag("diff", 'd', "Whether or not to diff the current changes against N commits prior")
