@@ -7,6 +7,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/leep-frog/command"
 	"github.com/leep-frog/command/sourcerer"
+	"github.com/leep-frog/functional"
+	"golang.org/x/exp/slices"
 )
 
 func repoRunContents() *command.RunContents {
@@ -913,6 +915,224 @@ func TestExecution(t *testing.T) {
 				command.ChangeTest(t, test.want, test.g, cmpopts.IgnoreUnexported(git{}), cmpopts.EquateEmpty())
 			})
 		}
+	}
+}
+
+type gitStatusFile struct {
+	name               string
+	porcelain          []string
+	diffNameOnly       bool
+	diffNameOnlyCached bool
+}
+
+// Names of files below are the order of actions that happened to the file.
+var (
+	modifiedFile = &gitStatusFile{
+		"modified.go",
+		[]string{"1 .M N... 100644 100644 100644 7efc2d1ea4fa9c61329411bae30090ff3d0cf2be 7efc2d1ea4fa9c61329411bae30090ff3d0cf2be modified.go"},
+		true,
+		false,
+	}
+	modifiedCachedFile = &gitStatusFile{
+		"modified-cached.go",
+		[]string{"1 M. N... 100644 100644 100644 7efc2d1ea4fa9c61329411bae30090ff3d0cf2be e4680edc5a0a0f60ae4e01414f711e6a55a8d8d9 modified-cached.go"},
+		false,
+		true,
+	}
+	modifiedCachedModifiedFile = &gitStatusFile{
+		"modified-cached-modified.go",
+		[]string{"1 MM N... 100644 100644 100644 7efc2d1ea4fa9c61329411bae30090ff3d0cf2be e4680edc5a0a0f60ae4e01414f711e6a55a8d8d9 modified-cached-modified.go"},
+		true,
+		true,
+	}
+	// TODO:modifiedCachedDeletedFile
+	deletedFile = &gitStatusFile{
+		"deleted.go",
+		[]string{"1 .D N... 100644 100644 000000 37abf5327a1c2b98ea66b8be27243b7690350236 37abf5327a1c2b98ea66b8be27243b7690350236 deleted.go"},
+		true,
+		false,
+	}
+	deletedCachedFile = &gitStatusFile{
+		"deleted-cached.go",
+		[]string{"1 D. N... 100644 000000 000000 37abf5327a1c2b98ea66b8be27243b7690350236 0000000000000000000000000000000000000000 deleted-cached.go"},
+		false,
+		true,
+	}
+	deletedCachedCreatedFile = &gitStatusFile{
+		"deleted-cached-created.go",
+		[]string{
+			// Shows as both deleted file and new file
+			"1 D. N... 100644 000000 000000 37abf5327a1c2b98ea66b8be27243b7690350236 0000000000000000000000000000000000000000 deleted-cached-created.go",
+			"? deleted-cached-created.go",
+		},
+		false,
+		true,
+	}
+	createdFile = &gitStatusFile{
+		"created.go",
+		[]string{"? created.go"},
+		false,
+		false,
+	}
+	createdCachedFile = &gitStatusFile{
+		"created-cached.go",
+		[]string{"1 A. N... 000000 100644 100644 0000000000000000000000000000000000000000 49cc8ef0e116cef009fe0bd72473a964bbd07f9b created-cached.go"},
+		false,
+		true,
+	}
+	createdCachedModifiedFile = &gitStatusFile{
+		"created-cached-modified.go",
+		[]string{"1 AM N... 000000 100644 100644 0000000000000000000000000000000000000000 49cc8ef0e116cef009fe0bd72473a964bbd07f9b created-cached-modified.go"},
+		true,
+		true,
+	}
+	createdCachedDeletedFile = &gitStatusFile{
+		"created-cached-deleted.go",
+		[]string{"1 AD N... 000000 100644 000000 0000000000000000000000000000000000000000 49cc8ef0e116cef009fe0bd72473a964bbd07f9b created-cached-deleted.go"},
+		true,
+		true,
+	}
+
+	allFiles = []*gitStatusFile{
+		modifiedFile,
+		modifiedCachedFile,
+		modifiedCachedModifiedFile,
+		deletedFile,
+		deletedCachedFile,
+		deletedCachedCreatedFile,
+		createdFile,
+		createdCachedFile,
+		createdCachedModifiedFile,
+		createdCachedDeletedFile,
+	}
+
+	diffNameFiles       = functional.Filter(allFiles, func(f *gitStatusFile) bool { return f.diffNameOnly })
+	diffNameCachedFiles = functional.Filter(allFiles, func(f *gitStatusFile) bool { return f.diffNameOnlyCached })
+)
+
+func TestAutocompletePorcelain(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		wantFiles []*gitStatusFile
+		ctc       *command.CompleteTestCase
+	}{
+		{
+			name: "Completions for add",
+			wantFiles: []*gitStatusFile{
+				modifiedFile,
+				modifiedCachedModifiedFile,
+				deletedFile,
+				deletedCachedCreatedFile,
+				createdFile,
+				createdCachedModifiedFile,
+				createdCachedDeletedFile,
+			},
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd a ",
+				SkipDataCheck: true,
+			},
+		},
+		{
+			name: "Completions for undo change",
+			wantFiles: []*gitStatusFile{
+				modifiedFile,
+				modifiedCachedModifiedFile,
+				deletedFile,
+				deletedCachedCreatedFile,
+				createdFile,
+				createdCachedModifiedFile,
+				createdCachedDeletedFile,
+			},
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd uc ",
+				SkipDataCheck: true,
+			},
+		},
+		{
+			name: "Completions for undo add",
+			wantFiles: []*gitStatusFile{
+				modifiedCachedFile,
+				modifiedCachedModifiedFile,
+				deletedCachedFile,
+				deletedCachedCreatedFile,
+				createdCachedFile,
+				createdCachedModifiedFile,
+				createdCachedDeletedFile,
+			},
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd ua ",
+				SkipDataCheck: true,
+			},
+		},
+		{
+			name: "Completions for status",
+			wantFiles: []*gitStatusFile{
+				modifiedFile,
+				modifiedCachedFile,
+				modifiedCachedModifiedFile,
+				deletedFile,
+				deletedCachedFile,
+				deletedCachedCreatedFile,
+				createdFile,
+				createdCachedFile,
+				createdCachedModifiedFile,
+				createdCachedDeletedFile,
+			},
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd s ",
+				SkipDataCheck: true,
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			g := &git{}
+			test.ctc.Node = g.Node()
+			var statuses []string
+			for _, f := range allFiles {
+				statuses = append(statuses, f.porcelain...)
+			}
+			test.ctc.RunResponses = []*command.FakeRun{{
+				Stdout: statuses,
+			}}
+			test.ctc.WantRunContents = []*command.RunContents{{
+				Name: "git",
+				Args: []string{"status", "--porcelain=v2"},
+			}}
+
+			test.ctc.Want = functional.Map[*gitStatusFile, string](test.wantFiles, func(f *gitStatusFile) string { return f.name })
+			slices.Sort(test.ctc.Want)
+
+			command.CompleteTest(t, test.ctc)
+		})
+	}
+}
+
+func TestAutocompleteNameOnly(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		ctc  *command.CompleteTestCase
+	}{
+		{
+			name: "Completions for diff",
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd d ",
+				SkipDataCheck: true,
+				Want:          []string{"abc", "def"},
+				WantRunContents: []*command.RunContents{{
+					Name: "git",
+					Args: []string{"diff", "--name-only", "--relative"},
+				}},
+				RunResponses: []*command.FakeRun{{
+					Stdout: []string{"abc", "def"},
+				}},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			g := &git{}
+			test.ctc.Node = g.Node()
+			command.CompleteTest(t, test.ctc)
+		})
 	}
 }
 

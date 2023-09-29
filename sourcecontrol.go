@@ -67,10 +67,10 @@ var (
 	redFileCompleterNoDeletes   = command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--name-only", "--relative")
 	greenFileCompleterNoDeletes = command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--cached", "--name-only", "--relative")
 
-	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, redFileCompleter)
-	statusCompleter = PrefixCompleter[[]string](true, regexp.MustCompile(".*"))
-	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompleter)
-	repoName        = &command.ShellCommand[string]{
+	filesArg         = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, redFileCompleter)
+	allFileCompleter = PrefixCompleter[[]string](true, regexp.MustCompile(".*"))
+	statusFilesArg   = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, allFileCompleter)
+	repoName         = &command.ShellCommand[string]{
 		ArgName:     "REPO",
 		CommandName: "git",
 		Args: []string{
@@ -101,7 +101,11 @@ var (
 	)
 	gitLogArg      = command.OptionalArg[int]("N", "Number of git logs to display", command.Positive[int](), command.Default(1))
 	gitLogDiffFlag = command.BoolFlag("diff", 'd', "Whether or not to diff the current changes against N commits prior")
-	stashArgs      = command.ListArg[string]("STASH_ARGS", "Args to pass to `git stash push/pop`", 0, command.UnboundedList)
+	stashArgs      = command.ListArg[string](
+		"STASH_ARGS", "Args to pass to `git stash push/pop`",
+		0, command.UnboundedList,
+		allFileCompleter,
+	)
 )
 
 func CLI() *git {
@@ -234,6 +238,14 @@ func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) 
 		}
 
 		var suggestions []string
+		has := map[string]bool{}
+		addSuggesteion := func(s string) {
+			if has[s] {
+				return
+			}
+			has[s] = true
+			suggestions = append(suggestions, s)
+		}
 		for _, result := range results {
 			// Format is the following for tracked files
 			// 1 .M ... 100644 100644 100644 e1548292489441c42682f38f2590e24d66a8587a e1548292489441c42682f38f2590e24d66a8587a sourcecontrol.go
@@ -247,7 +259,7 @@ func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) 
 			if parts[0] == "?" {
 				file := strings.Join(parts[1:], " ")
 				if includeUnknown {
-					suggestions = append(suggestions, file)
+					addSuggesteion(file)
 				}
 				continue
 			}
@@ -256,7 +268,7 @@ func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) 
 			file := strings.Join(parts[8:], " ")
 			for _, rgx := range prefixCodes {
 				if rgx.MatchString(parts[1]) {
-					suggestions = append(suggestions, file)
+					addSuggesteion(file)
 					break
 				}
 			}
