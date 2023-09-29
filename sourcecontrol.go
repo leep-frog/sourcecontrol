@@ -173,9 +173,7 @@ func (g *git) Changed() bool {
 	return g.changed
 }
 func (*git) Setup() []string { return nil }
-func (*git) Name() string {
-	return "g"
-}
+func (*git) Name() string    { return "g" }
 
 func (g *git) GetDefaultBranch(d *command.Data) string {
 	if g.MainBranches == nil {
@@ -191,10 +189,6 @@ func (g *git) GetDefaultBranch(d *command.Data) string {
 		return DefaultDefaultBranch
 	}
 	return g.DefaultBranch
-}
-
-func (g *git) MarkChanged() {
-	g.changed = true
 }
 
 func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) command.Completer[T] {

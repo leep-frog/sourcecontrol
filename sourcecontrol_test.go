@@ -1465,8 +1465,37 @@ func TestAutocomplete(t *testing.T) {
 	}
 }
 
-func TestAliasers(t *testing.T) {
+func TestMetadata(t *testing.T) {
 	t.Run("GitAliasers() returns without issues", func(t *testing.T) {
 		GitAliasers()
 	})
+
+	g := &git{}
+
+	t.Run("Metadata functions returns without issues", func(t *testing.T) {
+		g.Name()
+		g.Setup()
+	})
+
+	t.Run("Fails if unknown OS", func(t *testing.T) {
+		etc := &command.ExecuteTestCase{
+			Node:            g.Node(),
+			Args:            []string{"pp"},
+			WantErr:         fmt.Errorf(`Unknown OS ("other")`),
+			WantStderr:      "Unknown OS (\"other\")\n",
+			WantExecuteData: &command.ExecuteData{Executable: []string{""}, FunctionWrap: true},
+		}
+		fos := &fakeOS{sourcerer.Linux(), "other"}
+		command.StubValue(t, &sourcerer.CurrentOS, fos.os())
+		command.ExecuteTest(t, etc)
+	})
 }
+
+type fakeOS struct {
+	sourcerer.OS
+
+	name string
+}
+
+func (f *fakeOS) Name() string     { return f.name }
+func (f *fakeOS) os() sourcerer.OS { return f }
