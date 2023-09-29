@@ -35,7 +35,6 @@ func executableJoinByOS(cmds ...string) command.Processor {
 }
 
 const (
-	commitCacheKey = "COMMIT_CACHE_KEY"
 	// See https://github.com/leep-frog/ssh
 	// createSSHAgentCommand = "ssh-add"
 	createSSHAgentCommand = ""
@@ -165,7 +164,6 @@ func GitAliasers() sourcerer.Option {
 }
 
 type git struct {
-	Caches        map[string][][]string
 	MainBranches  map[string]string
 	DefaultBranch string
 	changed       bool
@@ -177,13 +175,6 @@ func (g *git) Changed() bool {
 func (*git) Setup() []string { return nil }
 func (*git) Name() string {
 	return "g"
-}
-
-func (g *git) Cache() map[string][][]string {
-	if g.Caches == nil {
-		g.Caches = map[string][][]string{}
-	}
-	return g.Caches
 }
 
 func (g *git) GetDefaultBranch(d *command.Data) string {
@@ -200,24 +191,6 @@ func (g *git) GetDefaultBranch(d *command.Data) string {
 		return DefaultDefaultBranch
 	}
 	return g.DefaultBranch
-}
-
-func (g *git) setDefaultBranch(o command.Output, d *command.Data, v string) {
-	if g.MainBranches == nil {
-		g.MainBranches = map[string]string{}
-	}
-	rn := repoName.Get(d)
-	g.MainBranches[rn] = v
-	o.Stdoutf("Setting default branch for %s to %s\n", rn, v)
-}
-
-func (g *git) unsetDefaultBranch(o command.Output, d *command.Data) {
-	if g.MainBranches == nil {
-		return
-	}
-	rn := repoName.Get(d)
-	delete(g.MainBranches, rn)
-	o.Stdoutf("Deleting default branch for %s\n", rn)
 }
 
 func (g *git) MarkChanged() {
@@ -316,23 +289,44 @@ func (g *git) Node() command.Node {
 									repoName,
 									defRepoArg,
 									&command.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
+										g.changed = true
+
 										if globalConfig.Get(d) {
 											g.DefaultBranch = defRepoArg.Get(d)
-										} else {
-											g.setDefaultBranch(o, d, defRepoArg.Get(d))
+											o.Stdoutln("Setting global default branch to", defRepoArg.Get(d))
+											return nil
 										}
-										g.changed = true
+
+										if g.MainBranches == nil {
+											g.MainBranches = map[string]string{}
+										}
+										g.MainBranches[repoName.Get(d)] = defRepoArg.Get(d)
+										o.Stdoutf("Setting default branch for %s to %s\n", repoName.Get(d), defRepoArg.Get(d))
 										return nil
 									}},
 								),
 								"unset": command.SerialNodes(
+									command.FlagProcessor(globalConfig),
 									repoName,
 									&command.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
 										if globalConfig.Get(d) {
 											g.DefaultBranch = ""
-										} else {
-											g.unsetDefaultBranch(o, d)
+											g.changed = true
+											o.Stdoutln("Deleting global default branch")
+											return nil
 										}
+
+										if g.MainBranches == nil {
+											o.Stdoutln("No default branch set for this repo")
+											return nil
+										}
+										rn := repoName.Get(d)
+										if _, ok := g.MainBranches[rn]; !ok {
+											o.Stdoutln("No default branch set for this repo")
+											return nil
+										}
+										delete(g.MainBranches, rn)
+										o.Stdoutln("Deleting default branch for", rn)
 										g.changed = true
 										return nil
 									}},
@@ -519,7 +513,7 @@ func (g *git) Node() command.Node {
 			),
 
 			// Squash
-			"q": command.CacheNode(commitCacheKey, g, command.SerialNodes(
+			/*"q": command.CacheNode(commitCacheKey, g, command.SerialNodes(
 				command.Description("Squash local commits"),
 				command.FlagProcessor(
 					nvFlag,
@@ -539,7 +533,7 @@ func (g *git) Node() command.Node {
 					r = append(r, "echo Success!")
 					return joinByOS(r...)
 				})),
-			),
+			),*/
 
 			// Checkout branch
 			"ch": command.SerialNodes(

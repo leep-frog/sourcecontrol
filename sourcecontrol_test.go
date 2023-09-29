@@ -404,6 +404,43 @@ func TestExecution(t *testing.T) {
 					},
 				},
 			},
+			// Push and pull
+			{
+				name: "push",
+				etc: &command.ExecuteTestCase{
+					Args:            []string{"p"},
+					WantExecuteData: &command.ExecuteData{Executable: []string{"", "git push"}, FunctionWrap: true},
+				},
+			},
+			{
+				name: "pull",
+				etc: &command.ExecuteTestCase{
+					Args:            []string{"l"},
+					WantExecuteData: &command.ExecuteData{Executable: []string{"", "git pull"}, FunctionWrap: true},
+				},
+			},
+			{
+				name: "pull and push",
+				osChecks: map[string]*osCheck{
+					"windows": {
+						wantExecutable: []string{
+							"",
+							wCmd("git pull"),
+							wCmd("git push"),
+						},
+					},
+					"linux": {
+						wantExecutable: []string{
+							"",
+							"git pull && git push",
+						},
+					},
+				},
+				etc: &command.ExecuteTestCase{
+					Args:            []string{"pp"},
+					WantExecuteData: &command.ExecuteData{FunctionWrap: true},
+				},
+			},
 			// Commit
 			{
 				name: "commit requires args",
@@ -971,10 +1008,174 @@ func TestExecution(t *testing.T) {
 					}, "\n"),
 				},
 			},
+			{
+				name: "Sets default branch",
+				g:    &git{},
+				want: &git{
+					MainBranches: map[string]string{
+						"some-repo": "db",
+					},
+				},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"cfg", "main", "set", "db"},
+					WantRunContents: []*command.RunContents{{
+						Name: "git",
+						Args: []string{
+							"config",
+							"--get",
+							"remote.origin.url",
+						},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						repoName.Name():   "some-repo",
+						defRepoArg.Name(): "db",
+					}},
+					RunResponses: []*command.FakeRun{{
+						Stdout: []string{"some-repo"},
+					}},
+					WantStdout: "Setting default branch for some-repo to db\n",
+				},
+			},
+			{
+				name: "Sets global default branch",
+				g:    &git{},
+				want: &git{
+					DefaultBranch: "Maine",
+				},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"cfg", "main", "set", "Maine", "-g"},
+					WantRunContents: []*command.RunContents{{
+						Name: "git",
+						Args: []string{
+							"config",
+							"--get",
+							"remote.origin.url",
+						},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						repoName.Name():     "some-repo",
+						defRepoArg.Name():   "Maine",
+						globalConfig.Name(): true,
+					}},
+					RunResponses: []*command.FakeRun{{
+						Stdout: []string{"some-repo"},
+					}},
+					WantStdout: "Setting global default branch to Maine\n",
+				},
+			},
+			{
+				name: "Unsets default branch",
+				g: &git{
+					MainBranches: map[string]string{
+						"some-repo": "db",
+						"other":     "heh",
+					},
+				},
+				want: &git{
+					MainBranches: map[string]string{
+						"other": "heh",
+					},
+				},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"cfg", "main", "unset"},
+					WantRunContents: []*command.RunContents{{
+						Name: "git",
+						Args: []string{
+							"config",
+							"--get",
+							"remote.origin.url",
+						},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						repoName.Name(): "some-repo",
+					}},
+					RunResponses: []*command.FakeRun{{
+						Stdout: []string{"some-repo"},
+					}},
+					WantStdout: "Deleting default branch for some-repo\n",
+				},
+			},
+			{
+				name: "Does nothing if no default branch map",
+				g:    &git{},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"cfg", "main", "unset"},
+					WantRunContents: []*command.RunContents{{
+						Name: "git",
+						Args: []string{
+							"config",
+							"--get",
+							"remote.origin.url",
+						},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						repoName.Name(): "some-repo",
+					}},
+					RunResponses: []*command.FakeRun{{
+						Stdout: []string{"some-repo"},
+					}},
+					WantStdout: "No default branch set for this repo\n",
+				},
+			},
+			{
+				name: "Does nothing if no default branch for repo",
+				g: &git{
+					MainBranches: map[string]string{
+						"other": "dflt",
+					},
+				},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"cfg", "main", "unset"},
+					WantRunContents: []*command.RunContents{{
+						Name: "git",
+						Args: []string{
+							"config",
+							"--get",
+							"remote.origin.url",
+						},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						repoName.Name(): "some-repo",
+					}},
+					RunResponses: []*command.FakeRun{{
+						Stdout: []string{"some-repo"},
+					}},
+					WantStdout: "No default branch set for this repo\n",
+				},
+			},
+			{
+				name: "Unsets global default branch",
+				g: &git{
+					DefaultBranch: "Maine",
+				},
+				want: &git{},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"cfg", "main", "unset", "-g"},
+					WantRunContents: []*command.RunContents{{
+						Name: "git",
+						Args: []string{
+							"config",
+							"--get",
+							"remote.origin.url",
+						},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						repoName.Name():     "some-repo",
+						globalConfig.Name(): true,
+					}},
+					RunResponses: []*command.FakeRun{{
+						Stdout: []string{"some-repo"},
+					}},
+					WantStdout: "Deleting global default branch\n",
+				},
+			},
 		} {
 			t.Run(fmt.Sprintf("[%s] %s", curOS.Name(), test.name), func(t *testing.T) {
 				command.StubValue(t, &sourcerer.CurrentOS, curOS)
 				if oschk, ok := test.osChecks[curOS.Name()]; ok {
+					if test.etc.WantExecuteData == nil {
+						test.etc.WantExecuteData = &command.ExecuteData{}
+					}
 					test.etc.WantExecuteData.Executable = oschk.wantExecutable
 				}
 
@@ -1238,6 +1439,21 @@ func TestAutocomplete(t *testing.T) {
 					Err: fmt.Errorf("oops"),
 				}},
 				WantErr: fmt.Errorf("failed to fetch autocomplete suggestions with shell command: failed to execute shell command: oops"),
+			},
+		},
+		{
+			name: "PrefixCompleter handles error",
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd a ",
+				SkipDataCheck: true,
+				WantRunContents: []*command.RunContents{{
+					Name: "git",
+					Args: []string{"status", "--porcelain=v2"},
+				}},
+				RunResponses: []*command.FakeRun{{
+					Err: fmt.Errorf("whoops"),
+				}},
+				WantErr: fmt.Errorf("failed to get git status: failed to execute shell command: whoops"),
 			},
 		},
 	} {
