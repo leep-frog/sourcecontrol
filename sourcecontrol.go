@@ -7,7 +7,11 @@ import (
 
 	"github.com/leep-frog/command"
 	"github.com/leep-frog/command/sourcerer"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
+
+const DefaultDefaultBranch = "main"
 
 func joinByOS(cmds ...string) ([]string, error) {
 	switch sourcerer.CurrentOS.Name() {
@@ -114,7 +118,7 @@ func CLI() *git {
 
 func BranchCompleter() command.Completer[string] {
 	return command.CompleterFromFunc(func(s string, d *command.Data) (*command.Completion, error) {
-		c, err := command.ShellCommandCompleter[string](`git branch | grep -v "\*"`).Complete(s, d)
+		c, err := command.ShellCommandCompleter[string]("git", "branch", "--list").Complete(s, d)
 		if c == nil || err != nil {
 			return c, err
 		}
@@ -122,7 +126,7 @@ func BranchCompleter() command.Completer[string] {
 		var r []string
 		for _, s := range c.Suggestions {
 			if !strings.Contains(s, "*") {
-				r = append(r, s)
+				r = append(r, strings.TrimSpace(s))
 			}
 		}
 		c.Suggestions = r
@@ -185,7 +189,7 @@ func (g *git) Cache() map[string][][]string {
 func (g *git) GetDefaultBranch(d *command.Data) string {
 	if g.MainBranches == nil {
 		if len(g.DefaultBranch) == 0 {
-			return "main"
+			return DefaultDefaultBranch
 		}
 		return g.DefaultBranch
 	}
@@ -193,7 +197,7 @@ func (g *git) GetDefaultBranch(d *command.Data) string {
 		return m
 	}
 	if len(g.DefaultBranch) == 0 {
-		return "main"
+		return DefaultDefaultBranch
 	}
 	return g.DefaultBranch
 }
@@ -293,9 +297,16 @@ func (g *git) Node() command.Node {
 							Branches: map[string]command.Node{
 								"show": command.SerialNodes(
 									&command.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
-										o.Stdoutf("Global main: %s\n", g.DefaultBranch)
-										for k, v := range g.MainBranches {
-											o.Stdoutf("%s: %s\n", k, v)
+										if len(g.DefaultBranch) == 0 {
+											o.Stdoutln("No global default branch set; using", DefaultDefaultBranch)
+										} else {
+											o.Stdoutln("Global default branch:", g.DefaultBranch)
+										}
+
+										keys := maps.Keys(g.MainBranches)
+										slices.Sort(keys)
+										for _, k := range keys {
+											o.Stdoutf("%s: %s\n", k, g.MainBranches[k])
 										}
 										return nil
 									}},

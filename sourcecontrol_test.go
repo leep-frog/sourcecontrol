@@ -2,6 +2,7 @@ package sourcecontrol
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -252,8 +253,51 @@ func TestExecution(t *testing.T) {
 				},
 			},
 			{
+				name: "checkout main if MainBranches defined",
+				g: &git{
+					MainBranches: map[string]string{},
+				},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"m"},
+					RunResponses: []*command.FakeRun{{
+						Stdout: []string{"test-repo"},
+					}},
+					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantData: &command.Data{Values: map[string]interface{}{
+						repoName.Name(): "test-repo",
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"git checkout main",
+						},
+					},
+				},
+			},
+			{
 				name: "checkout main uses default branch for unknown repo",
 				g: &git{
+					DefaultBranch: "mainer",
+				},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"m"},
+					RunResponses: []*command.FakeRun{{
+						Stdout: []string{"test-repo"},
+					}},
+					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantData: &command.Data{Values: map[string]interface{}{
+						repoName.Name(): "test-repo",
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"git checkout mainer",
+						},
+					},
+				},
+			},
+			{
+				name: "checkout main uses default branch for unknown repo with MainBranches defined",
+				g: &git{
+					MainBranches:  map[string]string{},
 					DefaultBranch: "mainer",
 				},
 				etc: &command.ExecuteTestCase{
@@ -900,6 +944,33 @@ func TestExecution(t *testing.T) {
 					WantStdout: "git rebase --continue\n",
 				},
 			},
+			// Config tests
+			{
+				name: "Shows empty config",
+				etc: &command.ExecuteTestCase{
+					Args:       []string{"cfg", "main", "show"},
+					WantStdout: "No global default branch set; using main\n",
+				},
+			},
+			{
+				name: "Shows default branch config",
+				g: &git{
+					DefaultBranch: "other-main",
+					MainBranches: map[string]string{
+						"un":   "main-one",
+						"deux": "main-two",
+					},
+				},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"cfg", "main", "show"},
+					WantStdout: strings.Join([]string{
+						"Global default branch: other-main",
+						"deux: main-two",
+						"un: main-one",
+						"",
+					}, "\n"),
+				},
+			},
 		} {
 			t.Run(fmt.Sprintf("[%s] %s", curOS.Name(), test.name), func(t *testing.T) {
 				command.StubValue(t, &sourcerer.CurrentOS, curOS)
@@ -1107,7 +1178,7 @@ func TestAutocompletePorcelain(t *testing.T) {
 	}
 }
 
-func TestAutocompleteNameOnly(t *testing.T) {
+func TestAutocomplete(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		ctc  *command.CompleteTestCase
@@ -1125,6 +1196,48 @@ func TestAutocompleteNameOnly(t *testing.T) {
 				RunResponses: []*command.FakeRun{{
 					Stdout: []string{"abc", "def"},
 				}},
+			},
+		},
+		{
+			name: "Branch completions",
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd ch ",
+				SkipDataCheck: true,
+				Want:          []string{"b-1", "b-3"},
+				WantRunContents: []*command.RunContents{{
+					Name: "git",
+					Args: []string{"branch", "--list"},
+				}},
+				RunResponses: []*command.FakeRun{{
+					Stdout: []string{"  b-1 ", "* 	b-2", "		b-3		"},
+				}},
+			},
+		},
+		{
+			name: "Handles no	branch completions",
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd ch ",
+				SkipDataCheck: true,
+				WantRunContents: []*command.RunContents{{
+					Name: "git",
+					Args: []string{"branch", "--list"},
+				}},
+				RunResponses: []*command.FakeRun{{}},
+			},
+		},
+		{
+			name: "Handles branch completion error",
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd ch ",
+				SkipDataCheck: true,
+				WantRunContents: []*command.RunContents{{
+					Name: "git",
+					Args: []string{"branch", "--list"},
+				}},
+				RunResponses: []*command.FakeRun{{
+					Err: fmt.Errorf("oops"),
+				}},
+				WantErr: fmt.Errorf("failed to fetch autocomplete suggestions with shell command: failed to execute shell command: oops"),
 			},
 		},
 	} {
