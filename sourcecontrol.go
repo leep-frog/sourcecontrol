@@ -58,11 +58,20 @@ var (
 		"Branch",
 		BranchCompleter(),
 	)
-	mainFlag        = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
-	prevCommitFlag  = command.BoolFlag("commit", 'c', "Whether to diff against the previous commit")
-	addCompleter    = PrefixCompleter[[]string](".[^ ]", true)
+	mainFlag       = command.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
+	prevCommitFlag = command.BoolFlag("commit", 'c', "Whether to diff against the previous commit")
+
+	redFilePrefixPatterns = []*regexp.Regexp{
+		// Any file that hasn't been added
+		regexp.MustCompile("^[^A][^ ]$"),
+		// or files that have been added but since been deleted or modified
+		regexp.MustCompile("^A[DM]$"),
+	}
+
+	// This prefix matches any red files
+	addCompleter    = PrefixCompleter[[]string](true, redFilePrefixPatterns...)
 	filesArg        = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addCompleter)
-	statusCompleter = PrefixCompleter[[]string]("[^A].", false)
+	statusCompleter = PrefixCompleter[[]string](true, regexp.MustCompile("^..$"))
 	statusFilesArg  = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, statusCompleter)
 	repoName        = &command.ShellCommand[string]{
 		ArgName:     "REPO",
@@ -92,7 +101,7 @@ var (
 	ucArgs = command.ListArg[string](
 		"FILE", "Files to un-change",
 		1, command.UnboundedList,
-		PrefixCompleter[[]string](".[^ ]", false),
+		PrefixCompleter[[]string](false, redFilePrefixPatterns...),
 	)
 	gitLogArg      = command.OptionalArg[int]("N", "Number of git logs to display", command.Positive[int](), command.Default(1))
 	gitLogDiffFlag = command.BoolFlag("diff", 'd', "Whether or not to diff the current changes against N commits prior")
@@ -211,9 +220,9 @@ func (g *git) MarkChanged() {
 	g.changed = true
 }
 
-func PrefixCompleter[T any](prefixCode string, includeUnknown bool) command.Completer[T] {
+func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) command.Completer[T] {
 	return command.CompleterFromFunc(func(t T, d *command.Data) (*command.Completion, error) {
-		prefixRegex := regexp.MustCompile(prefixCode)
+		// prefixRegex := regexp.MustCompile(prefixCode)
 		bc := &command.ShellCommand[[]string]{
 			ArgName:     "opts",
 			CommandName: "git",
@@ -249,8 +258,11 @@ func PrefixCompleter[T any](prefixCode string, includeUnknown bool) command.Comp
 
 			// if file has a space in the name, we need to rejoin int
 			file := strings.Join(parts[8:], " ")
-			if prefixRegex.MatchString(parts[1]) {
-				suggestions = append(suggestions, file)
+			for _, rgx := range prefixCodes {
+				if rgx.MatchString(parts[1]) {
+					suggestions = append(suggestions, file)
+					break
+				}
 			}
 		}
 		return &command.Completion{
@@ -584,7 +596,7 @@ func (g *git) Node() command.Node {
 				uaArgs,
 				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
-						fmt.Sprintf("git reset %s", strings.Join(ucArgs.Get(d), " ")),
+						fmt.Sprintf("git reset -- %s", strings.Join(ucArgs.Get(d), " ")),
 					}, nil
 				}),
 			),
