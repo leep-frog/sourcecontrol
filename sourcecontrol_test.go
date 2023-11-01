@@ -76,51 +76,16 @@ func TestExecution(t *testing.T) {
 					},
 				},
 			},
-			// Git redo
+			// Git amend
 			{
-				name: "git redo succeeds",
-				osChecks: map[string]*osCheck{
-					"windows": {
-						wantExecutable: []string{
-							wCmd("guco"),
-							wCmd("ga ."),
-							wCmd(`gc "my previous commit message"`),
-						},
-					},
-				},
+				name: "git amend succeeds",
 				etc: &command.ExecuteTestCase{
-					Args: []string{"edo"},
-					RunResponses: []*command.FakeRun{{
-						Stdout: []string{"my previous commit message"},
-					}},
-					WantRunContents: []*command.RunContents{{
-						Name: "git",
-						Args: []string{
-							"log",
-							"-1",
-							"--pretty=%B",
-						},
-					}},
+					Args: []string{"am"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
-							`guco && ga . && gc "my previous commit message"`,
+							`git commit --amend --no-edit`,
 						},
 					},
-				},
-			},
-			{
-				name: "git redo fails",
-				etc: &command.ExecuteTestCase{
-					Args: []string{"edo"},
-					RunResponses: []*command.FakeRun{{
-						Err: fmt.Errorf("oops"),
-					}},
-					WantRunContents: []*command.RunContents{{
-						Name: "git",
-						Args: []string{"log", "-1", "--pretty=%B"},
-					}},
-					WantStderr: "failed to get previous commit message: failed to execute shell command: oops\n",
-					WantErr:    fmt.Errorf("failed to get previous commit message: failed to execute shell command: oops"),
 				},
 			},
 			// Git log

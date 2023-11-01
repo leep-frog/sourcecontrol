@@ -157,7 +157,7 @@ func GitAliasers() sourcerer.Option {
 		"sq":   {"g", "q"},
 		"gbd":  {"g", "bd"},
 		"glg":  {"g", "lg"},
-		"gedo": {"g", "edo"},
+		"gam":  {"g", "am"},
 		"gop":  {"g", "op"},
 		"gush": {"g", "ush"},
 	})
@@ -397,29 +397,9 @@ func (g *git) Node() command.Node {
 			),
 
 			// Complex commands
-			"edo": command.SerialNodes(
-				command.Description("Adds local changes to the previous commit"),
-				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					bc := &command.ShellCommand[string]{
-						CommandName: "git",
-						Args: []string{
-							"log",
-							"-1",
-							"--pretty=%B",
-						},
-						HideStderr: true,
-					}
-					s, err := bc.Run(nil, d)
-					if err != nil {
-						return nil, o.Annotatef(err, "failed to get previous commit message")
-					}
-
-					return joinByOS(
-						"guco",
-						"ga .",
-						fmt.Sprintf("gc %q", s),
-					)
-				}),
+			"am": command.SerialNodes(
+				command.Description("Git amend"),
+				command.SimpleExecutableProcessor("git commit --amend --no-edit"),
 			),
 			// Git log
 			"lg": command.SerialNodes(
