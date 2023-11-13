@@ -543,6 +543,38 @@ func TestExecution(t *testing.T) {
 					},
 				},
 			},
+			{
+				name: "commit message with newlines",
+				osChecks: map[string]*osCheck{
+					"windows": {
+						wantExecutable: []string{
+							wCmd(strings.Join([]string{
+								`git commit -m "did`,
+								`things and`,
+								``,
+								`other things too"`,
+							}, "\n")),
+							wCmd("echo Success!"),
+						},
+					},
+				},
+				etc: &command.ExecuteTestCase{
+					Args: []string{"c", "did\nthings", "and\n\nother things too"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						messageArg.Name(): []string{"did\nthings", "and\n\nother things too"},
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							strings.Join([]string{
+								`git commit -m "did`,
+								`things and`,
+								``,
+								`other things too" && echo Success!`,
+							}, "\n"),
+						},
+					},
+				},
+			},
 			// Commit & push
 			{
 				name: "commit and push requires args",

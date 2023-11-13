@@ -456,7 +456,12 @@ func (g *git) Node() command.Node {
 				),
 				command.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					r := []string{
-						fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
+						// Replace quoted newlines with actual newlines
+						strings.ReplaceAll(
+							fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
+							`\n`,
+							"\n",
+						),
 					}
 					if pushFlag.Get(d) {
 						r = append(r,
