@@ -1368,8 +1368,10 @@ func TestAutocompletePorcelain(t *testing.T) {
 				Args: []string{"status", "--porcelain=v2"},
 			}}
 
-			test.ctc.Want = functional.Map[*gitStatusFile, string](test.wantFiles, func(f *gitStatusFile) string { return f.name })
-			slices.Sort(test.ctc.Want)
+			test.ctc.Want = &command.Autocompletion{
+				Suggestions: functional.Map[*gitStatusFile, string](test.wantFiles, func(f *gitStatusFile) string { return f.name }),
+			}
+			slices.Sort(test.ctc.Want.Suggestions)
 
 			command.CompleteTest(t, test.ctc)
 		})
@@ -1386,7 +1388,9 @@ func TestAutocomplete(t *testing.T) {
 			ctc: &command.CompleteTestCase{
 				Args:          "cmd d ",
 				SkipDataCheck: true,
-				Want:          []string{"abc", "def"},
+				Want: &command.Autocompletion{
+					Suggestions: []string{"abc", "def"},
+				},
 				WantRunContents: []*command.RunContents{{
 					Name: "git",
 					Args: []string{"diff", "--name-only", "--relative"},
@@ -1401,7 +1405,9 @@ func TestAutocomplete(t *testing.T) {
 			ctc: &command.CompleteTestCase{
 				Args:          "cmd ch ",
 				SkipDataCheck: true,
-				Want:          []string{"b-1", "b-3"},
+				Want: &command.Autocompletion{
+					Suggestions: []string{"b-1", "b-3"},
+				},
 				WantRunContents: []*command.RunContents{{
 					Name: "git",
 					Args: []string{"branch", "--list"},
