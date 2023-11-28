@@ -1401,6 +1401,23 @@ func TestAutocomplete(t *testing.T) {
 			},
 		},
 		{
+			name: "Completions for diff (case insensitve)",
+			ctc: &command.CompleteTestCase{
+				Args:          "cmd d A",
+				SkipDataCheck: true,
+				Want: &command.Autocompletion{
+					Suggestions: []string{"abc"},
+				},
+				WantRunContents: []*command.RunContents{{
+					Name: "git",
+					Args: []string{"diff", "--name-only", "--relative"},
+				}},
+				RunResponses: []*command.FakeRun{{
+					Stdout: []string{"abc", "def"},
+				}},
+			},
+		},
+		{
 			name: "Branch completions",
 			ctc: &command.CompleteTestCase{
 				Args:          "cmd ch ",

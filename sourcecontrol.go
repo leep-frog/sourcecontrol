@@ -67,8 +67,8 @@ var (
 	// The two dots represent [file state in the cache (e.g. added/green), file state not in the cache (red file)]
 	redFileCompleter            = PrefixCompleter[[]string](true, regexp.MustCompile(`^.[^\.]$`))
 	greenFileCompleter          = PrefixCompleter[[]string](false, regexp.MustCompile(`^[^\.].$`))
-	redFileCompleterNoDeletes   = command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--name-only", "--relative")
-	greenFileCompleterNoDeletes = command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true}, "git", "diff", "--cached", "--name-only", "--relative")
+	redFileCompleterNoDeletes   = command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true, CaseInsensitive: true}, "git", "diff", "--name-only", "--relative")
+	greenFileCompleterNoDeletes = command.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true, CaseInsensitive: true}, "git", "diff", "--cached", "--name-only", "--relative")
 
 	filesArg         = command.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, redFileCompleter)
 	allFileCompleter = PrefixCompleter[[]string](true, regexp.MustCompile(".*"))
