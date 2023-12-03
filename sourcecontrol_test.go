@@ -6,14 +6,16 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/leep-frog/command"
+	"github.com/leep-frog/command/command"
+	"github.com/leep-frog/command/commandertest"
+	"github.com/leep-frog/command/commandtest"
 	"github.com/leep-frog/command/sourcerer"
 	"github.com/leep-frog/functional"
 	"golang.org/x/exp/slices"
 )
 
-func repoRunContents() *command.RunContents {
-	return &command.RunContents{
+func repoRunContents() *commandtest.RunContents {
+	return &commandtest.RunContents{
 		Name: "git",
 		Args: []string{
 			"config",
@@ -28,24 +30,134 @@ func TestExecution(t *testing.T) {
 		wantExecutable []string
 	}
 
-	u, err := command.Use(CLI().Node(), command.ParseExecuteArgs(nil))
-	if err != nil {
-		t.Fatalf("Failed to generate usage")
-	}
+	u := strings.Join([]string{
+		`┓`,
+		`┃   Add`,
+		`┣━━ a [ FILES ... ]`,
+		`┃`,
+		`┃   Git amend`,
+		`┣━━ am`,
+		`┃`,
+		`┃   Branch`,
+		`┣━━ b`,
+		`┃`,
+		`┃   Delete branch`,
+		`┣━━ bd BRANCH --force-delete|-f`,
+		`┃`,
+		`┃   Commit`,
+		`┣━━ c MESSAGE [ MESSAGE ... ] --no-verify|-n --push|-p`,
+		`┃`,
+		`┃   Config settings`,
+		`┣━━ cfg ┓`,
+		`┃   ┏━━━┛`,
+		`┃   ┃`,
+		`┃   ┗━━ main ┓`,
+		`┃       ┏━━━━┛`,
+		`┃       ┃`,
+		`┃       ┃   `,
+		`┃       ┣━━ set DEFAULT_BRANCH --global|-g`,
+		`┃       ┃`,
+		`┃       ┣━━ show`,
+		`┃       ┃`,
+		`┃       ┃   `,
+		`┃       ┗━━ unset --global|-g`,
+		`┃`,
+		`┃   Checkout new branch`,
+		`┣━━ ch BRANCH --new-branch|-n`,
+		`┃`,
+		`┃   Commit and push`,
+		`┣━━ cp MESSAGE [ MESSAGE ... ] --no-verify|-n`,
+		`┃`,
+		`┃   `,
+		`┣━━ d [ FILE ... ] --commit|-c --main|-m --whitespace|-w`,
+		`┃`,
+		`┃   Git fetch`,
+		`┣━━ f`,
+		`┃`,
+		`┃   Pull`,
+		`┣━━ [l|pl]`,
+		`┃`,
+		`┃   Git log`,
+		`┣━━ lg [ N ] --diff|-d`,
+		`┃`,
+		`┃   `,
+		`┣━━ m`,
+		`┃`,
+		`┃   `,
+		`┣━━ mm`,
+		`┃`,
+		`┃   Git stash pop`,
+		`┣━━ op [ STASH_ARGS ... ]`,
+		`┃`,
+		`┃   Push`,
+		`┣━━ p`,
+		`┃`,
+		`┃   Pull and push`,
+		`┣━━ pp`,
+		`┃`,
+		`┣━━ rb ┓`,
+		`┃   ┏━━┛`,
+		`┃   ┃`,
+		`┃   ┃   Abort`,
+		`┃   ┣━━ a`,
+		`┃   ┃`,
+		`┃   ┃   Continue`,
+		`┃   ┗━━ c`,
+		`┃`,
+		`┃   Status`,
+		`┣━━ s [ FILES ... ]`,
+		`┃`,
+		`┃   Create ssh-agent`,
+		`┣━━ sh`,
+		`┃`,
+		`┃   Undo add`,
+		`┣━━ ua FILE [ FILE ... ]`,
+		`┃`,
+		`┃   Undo change`,
+		`┣━━ uc FILE [ FILE ... ]`,
+		`┃`,
+		`┃   Undo commit`,
+		`┣━━ uco`,
+		`┃`,
+		`┃   Git stash push`,
+		`┗━━ ush [ STASH_ARGS ... ]`,
+		``,
+		`Arguments:`,
+		`  BRANCH: Branch`,
+		`  DEFAULT_BRANCH: Default branch for this git repo`,
+		`  FILE: Files to un-change`,
+		`  FILES: Files to add`,
+		`  MESSAGE: Commit message`,
+		`  N: Number of git logs to display`,
+		`    Default: 1`,
+		`    Positive()`,
+		"  STASH_ARGS: Args to pass to `git stash push/pop`",
+		``,
+		`Flags:`,
+		`  [c] commit: Whether to diff against the previous commit`,
+		`  [d] diff: Whether or not to diff the current changes against N commits prior`,
+		`  [f] force-delete: force delete the branch`,
+		`  [g] global: Whether or not to change the global setting`,
+		`  [m] main: Whether to diff against main branch or just local diffs`,
+		`  [n] new-branch: Whether or not to checkout a new branch`,
+		`  [n] no-verify: Whether or not to run pre-commit checks`,
+		`  [p] push: Whether or not to push afterwards`,
+		`  [w] whitespace: Whether or not to show whitespace in diffs`,
+	}, "\n")
 
 	for _, curOS := range []sourcerer.OS{sourcerer.Linux(), sourcerer.Windows()} {
 		for _, test := range []struct {
 			name     string
 			g        *git
 			want     *git
-			etc      *command.ExecuteTestCase
+			etc      *commandtest.ExecuteTestCase
 			osChecks map[string]*osCheck
 		}{
 			// TODO: Config tests
 			// Simple command tests
 			{
 				name: "branch",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"b"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{"git branch"},
@@ -54,7 +166,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "pull",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"l"},
 					WantExecuteData: &command.ExecuteData{
 						FunctionWrap: true,
@@ -67,7 +179,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "fetch",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"f"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -79,7 +191,7 @@ func TestExecution(t *testing.T) {
 			// Git amend
 			{
 				name: "git amend succeeds",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"am"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -91,7 +203,7 @@ func TestExecution(t *testing.T) {
 			// Git log
 			{
 				name: "git log with no args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"lg"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitLogArg.Name(): 1,
@@ -105,7 +217,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "git log with arg",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"lg", "4"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitLogArg.Name(): 4,
@@ -119,7 +231,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "git log diff with no args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"lg", "-d"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitLogArg.Name():      1,
@@ -134,7 +246,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "git log diff with args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"lg", "-d", "7"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitLogArg.Name():      7,
@@ -150,7 +262,7 @@ func TestExecution(t *testing.T) {
 			// Git stash push/pop
 			{
 				name: "git stash push with no args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ush"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -161,7 +273,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "git stash pop with no args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"op"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -172,7 +284,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "git stash push with args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ush", "abc", "123"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						stashArgs.Name(): []string{"abc", "123"},
@@ -186,7 +298,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "git stash pop with args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"op", "def", "456"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						stashArgs.Name(): []string{"def", "456"},
@@ -201,12 +313,12 @@ func TestExecution(t *testing.T) {
 			// Checkout main
 			{
 				name: "checkout main",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"m"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 					}},
@@ -222,12 +334,12 @@ func TestExecution(t *testing.T) {
 				g: &git{
 					MainBranches: map[string]string{},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"m"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 					}},
@@ -243,12 +355,12 @@ func TestExecution(t *testing.T) {
 				g: &git{
 					DefaultBranch: "mainer",
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"m"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 					}},
@@ -265,12 +377,12 @@ func TestExecution(t *testing.T) {
 					MainBranches:  map[string]string{},
 					DefaultBranch: "mainer",
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"m"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 					}},
@@ -289,12 +401,12 @@ func TestExecution(t *testing.T) {
 						"test-repo": "mainest",
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"m"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 					}},
@@ -308,12 +420,12 @@ func TestExecution(t *testing.T) {
 			// Merge main
 			{
 				name: "merge main",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"mm"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 					}},
@@ -329,12 +441,12 @@ func TestExecution(t *testing.T) {
 				g: &git{
 					DefaultBranch: "mainer",
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"mm"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 					}},
@@ -353,12 +465,12 @@ func TestExecution(t *testing.T) {
 						"test-repo": "mainest",
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"mm"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 					}},
@@ -372,14 +484,14 @@ func TestExecution(t *testing.T) {
 			// Push and pull
 			{
 				name: "push",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:            []string{"p"},
 					WantExecuteData: &command.ExecuteData{Executable: []string{"", "git push"}, FunctionWrap: true},
 				},
 			},
 			{
 				name: "pull",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:            []string{"l"},
 					WantExecuteData: &command.ExecuteData{Executable: []string{"", "git pull"}, FunctionWrap: true},
 				},
@@ -401,7 +513,7 @@ func TestExecution(t *testing.T) {
 						},
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:            []string{"pp"},
 					WantExecuteData: &command.ExecuteData{FunctionWrap: true},
 				},
@@ -409,7 +521,7 @@ func TestExecution(t *testing.T) {
 			// Commit
 			{
 				name: "commit requires args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:       []string{"c"},
 					WantStderr: "Argument \"MESSAGE\" requires at least 1 argument, got 0\n",
 					WantErr:    fmt.Errorf(`Argument "MESSAGE" requires at least 1 argument, got 0`),
@@ -425,7 +537,7 @@ func TestExecution(t *testing.T) {
 						},
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"c", "did", "things"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						messageArg.Name(): []string{"did", "things"},
@@ -447,7 +559,7 @@ func TestExecution(t *testing.T) {
 						},
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"c", "did", "things", "-n"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						messageArg.Name(): []string{"did", "things"},
@@ -472,7 +584,7 @@ func TestExecution(t *testing.T) {
 						},
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"c", "did", "things", "-p"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						messageArg.Name(): []string{"did", "things"},
@@ -499,7 +611,7 @@ func TestExecution(t *testing.T) {
 						},
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"c", "did", "things", "--no-verify", "--push"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						messageArg.Name(): []string{"did", "things"},
@@ -527,7 +639,7 @@ func TestExecution(t *testing.T) {
 						},
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"c", "-np", "did", "things"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						messageArg.Name(): []string{"did", "things"},
@@ -558,7 +670,7 @@ func TestExecution(t *testing.T) {
 						},
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"c", "did\nthings", "and\n\nother things too"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						messageArg.Name(): []string{"did\nthings", "and\n\nother things too"},
@@ -578,7 +690,7 @@ func TestExecution(t *testing.T) {
 			// Commit & push
 			{
 				name: "commit and push requires args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:       []string{"cp"},
 					WantStderr: "Argument \"MESSAGE\" requires at least 1 argument, got 0\n",
 					WantErr:    fmt.Errorf(`Argument "MESSAGE" requires at least 1 argument, got 0`),
@@ -596,7 +708,7 @@ func TestExecution(t *testing.T) {
 						},
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"cp", "did", "things"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						messageArg.Name(): []string{"did", "things"},
@@ -622,7 +734,7 @@ func TestExecution(t *testing.T) {
 						},
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"cp", "did", "things", "-n"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						messageArg.Name(): []string{"did", "things"},
@@ -640,7 +752,7 @@ func TestExecution(t *testing.T) {
 			// Checkout new branch
 			{
 				name: "checkout branch requires arg",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:       []string{"ch"},
 					WantStderr: "Argument \"BRANCH\" requires at least 1 argument, got 0\n",
 					WantErr:    fmt.Errorf(`Argument "BRANCH" requires at least 1 argument, got 0`),
@@ -648,7 +760,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "checkout branch requires one arg",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ch", "tree", "limb"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchArg.Name(): "tree",
@@ -658,13 +770,13 @@ func TestExecution(t *testing.T) {
 							`git checkout tree`,
 						},
 					},
-					WantStderr: fmt.Sprintf("Unprocessed extra args: [limb]\n\n%s\n%s\n", command.UsageErrorSectionStart, u.String()),
+					WantStderr: fmt.Sprintf("Unprocessed extra args: [limb]\n\n%s\n%s\n", "======= Command Usage =======", u),
 					WantErr:    fmt.Errorf(`Unprocessed extra args: [limb]`),
 				},
 			},
 			{
 				name: "checks out a branch",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ch", "tree"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchArg.Name(): "tree",
@@ -678,7 +790,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "checks out a new branch",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ch", "tree", "-n"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchArg.Name():     "tree",
@@ -694,7 +806,7 @@ func TestExecution(t *testing.T) {
 			// Delete new branch
 			{
 				name: "delete branch requires arg",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:       []string{"bd"},
 					WantStderr: "Argument \"BRANCH\" requires at least 1 argument, got 0\n",
 					WantErr:    fmt.Errorf(`Argument "BRANCH" requires at least 1 argument, got 0`),
@@ -702,7 +814,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "delete branch requires one arg",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"bd", "tree", "limb"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchArg.Name(): "tree",
@@ -712,13 +824,13 @@ func TestExecution(t *testing.T) {
 							`git branch -d tree`,
 						},
 					},
-					WantStderr: fmt.Sprintf("Unprocessed extra args: [limb]\n\n%s\n%s\n", command.UsageErrorSectionStart, u.String()),
+					WantStderr: fmt.Sprintf("Unprocessed extra args: [limb]\n\n%s\n%s\n", "======= Command Usage =======", u),
 					WantErr:    fmt.Errorf(`Unprocessed extra args: [limb]`),
 				},
 			},
 			{
 				name: "deletes a branch",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"bd", "tree"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchArg.Name(): "tree",
@@ -732,7 +844,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "force deletes a branch",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"bd", "-f", "tree"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchArg.Name():   "tree",
@@ -748,7 +860,7 @@ func TestExecution(t *testing.T) {
 			// Undo add
 			{
 				name: "undo requires args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:       []string{"ua"},
 					WantStderr: "Argument \"FILE\" requires at least 1 argument, got 0\n",
 					WantErr:    fmt.Errorf(`Argument "FILE" requires at least 1 argument, got 0`),
@@ -756,7 +868,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "undo resets files",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ua", "file.one", "some/where/file.2"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						uaArgs.Name(): []string{
@@ -774,7 +886,7 @@ func TestExecution(t *testing.T) {
 			// Undo change
 			{
 				name: "undo change requires args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:       []string{"uc"},
 					WantStderr: "Argument \"FILE\" requires at least 1 argument, got 0\n",
 					WantErr:    fmt.Errorf(`Argument "FILE" requires at least 1 argument, got 0`),
@@ -782,7 +894,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "undo change undoes changed files",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"uc", "file.one", "some/where/file.2"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						ucArgs.Name(): []string{
@@ -800,7 +912,7 @@ func TestExecution(t *testing.T) {
 			// Status
 			{
 				name: "status with no args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"s"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -811,7 +923,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "status with args args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"s", "file.one", "some/where/file.2"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						filesArg.Name(): []string{
@@ -829,7 +941,7 @@ func TestExecution(t *testing.T) {
 			// Add
 			{
 				name: "add with no args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"a"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -840,7 +952,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "add with args args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"a", "file.one", "some/where/file.2"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						filesArg.Name(): []string{
@@ -858,12 +970,12 @@ func TestExecution(t *testing.T) {
 			// Diff
 			{
 				name: "diff with no args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"d"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 					}},
@@ -876,12 +988,12 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "diff with args",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"d", "this.file", "that/file/txt"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 						diffArgs.Name(): []string{
@@ -898,12 +1010,12 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "diff against main branch",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"d", "-m"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "test-repo",
 						mainFlag.Name(): true,
@@ -917,12 +1029,12 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "diff against last commit",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"d", "-c"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name():       "test-repo",
 						prevCommitFlag.Name(): true,
@@ -936,12 +1048,12 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "diff with whitespace flag",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"d", "-w"},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"test-repo"},
 					}},
-					WantRunContents: []*command.RunContents{repoRunContents()},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name():       "test-repo",
 						whitespaceFlag.Name(): "-w",
@@ -956,7 +1068,7 @@ func TestExecution(t *testing.T) {
 			// Rebase tests
 			{
 				name: "Rebase abort",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"rb", "a"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -968,7 +1080,7 @@ func TestExecution(t *testing.T) {
 			},
 			{
 				name: "Rebase abort",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"rb", "c"},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -981,7 +1093,7 @@ func TestExecution(t *testing.T) {
 			// Config tests
 			{
 				name: "Shows empty config",
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args:       []string{"cfg", "main", "show"},
 					WantStdout: "No global default branch set; using main\n",
 				},
@@ -995,7 +1107,7 @@ func TestExecution(t *testing.T) {
 						"deux": "main-two",
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"cfg", "main", "show"},
 					WantStdout: strings.Join([]string{
 						"Global default branch: other-main",
@@ -1013,9 +1125,9 @@ func TestExecution(t *testing.T) {
 						"some-repo": "db",
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"cfg", "main", "set", "db"},
-					WantRunContents: []*command.RunContents{{
+					WantRunContents: []*commandtest.RunContents{{
 						Name: "git",
 						Args: []string{
 							"config",
@@ -1027,7 +1139,7 @@ func TestExecution(t *testing.T) {
 						repoName.Name():   "some-repo",
 						defRepoArg.Name(): "db",
 					}},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"some-repo"},
 					}},
 					WantStdout: "Setting default branch for some-repo to db\n",
@@ -1039,9 +1151,9 @@ func TestExecution(t *testing.T) {
 				want: &git{
 					DefaultBranch: "Maine",
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"cfg", "main", "set", "Maine", "-g"},
-					WantRunContents: []*command.RunContents{{
+					WantRunContents: []*commandtest.RunContents{{
 						Name: "git",
 						Args: []string{
 							"config",
@@ -1054,7 +1166,7 @@ func TestExecution(t *testing.T) {
 						defRepoArg.Name():   "Maine",
 						globalConfig.Name(): true,
 					}},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"some-repo"},
 					}},
 					WantStdout: "Setting global default branch to Maine\n",
@@ -1073,9 +1185,9 @@ func TestExecution(t *testing.T) {
 						"other": "heh",
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"cfg", "main", "unset"},
-					WantRunContents: []*command.RunContents{{
+					WantRunContents: []*commandtest.RunContents{{
 						Name: "git",
 						Args: []string{
 							"config",
@@ -1086,7 +1198,7 @@ func TestExecution(t *testing.T) {
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "some-repo",
 					}},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"some-repo"},
 					}},
 					WantStdout: "Deleting default branch for some-repo\n",
@@ -1095,9 +1207,9 @@ func TestExecution(t *testing.T) {
 			{
 				name: "Does nothing if no default branch map",
 				g:    &git{},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"cfg", "main", "unset"},
-					WantRunContents: []*command.RunContents{{
+					WantRunContents: []*commandtest.RunContents{{
 						Name: "git",
 						Args: []string{
 							"config",
@@ -1108,7 +1220,7 @@ func TestExecution(t *testing.T) {
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "some-repo",
 					}},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"some-repo"},
 					}},
 					WantStdout: "No default branch set for this repo\n",
@@ -1121,9 +1233,9 @@ func TestExecution(t *testing.T) {
 						"other": "dflt",
 					},
 				},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"cfg", "main", "unset"},
-					WantRunContents: []*command.RunContents{{
+					WantRunContents: []*commandtest.RunContents{{
 						Name: "git",
 						Args: []string{
 							"config",
@@ -1134,7 +1246,7 @@ func TestExecution(t *testing.T) {
 					WantData: &command.Data{Values: map[string]interface{}{
 						repoName.Name(): "some-repo",
 					}},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"some-repo"},
 					}},
 					WantStdout: "No default branch set for this repo\n",
@@ -1146,9 +1258,9 @@ func TestExecution(t *testing.T) {
 					DefaultBranch: "Maine",
 				},
 				want: &git{},
-				etc: &command.ExecuteTestCase{
+				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"cfg", "main", "unset", "-g"},
-					WantRunContents: []*command.RunContents{{
+					WantRunContents: []*commandtest.RunContents{{
 						Name: "git",
 						Args: []string{
 							"config",
@@ -1160,7 +1272,7 @@ func TestExecution(t *testing.T) {
 						repoName.Name():     "some-repo",
 						globalConfig.Name(): true,
 					}},
-					RunResponses: []*command.FakeRun{{
+					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"some-repo"},
 					}},
 					WantStdout: "Deleting global default branch\n",
@@ -1168,7 +1280,7 @@ func TestExecution(t *testing.T) {
 			},
 		} {
 			t.Run(fmt.Sprintf("[%s] %s", curOS.Name(), test.name), func(t *testing.T) {
-				command.StubValue(t, &sourcerer.CurrentOS, curOS)
+				commandtest.StubValue(t, &sourcerer.CurrentOS, curOS)
 				if oschk, ok := test.osChecks[curOS.Name()]; ok {
 					if test.etc.WantExecuteData == nil {
 						test.etc.WantExecuteData = &command.ExecuteData{}
@@ -1180,8 +1292,8 @@ func TestExecution(t *testing.T) {
 					test.g = CLI()
 				}
 				test.etc.Node = test.g.Node()
-				command.ExecuteTest(t, test.etc)
-				command.ChangeTest(t, test.want, test.g, cmpopts.IgnoreUnexported(git{}), cmpopts.EquateEmpty())
+				commandertest.ExecuteTest(t, test.etc)
+				commandertest.ChangeTest(t, test.want, test.g, cmpopts.IgnoreUnexported(git{}), cmpopts.EquateEmpty())
 			})
 		}
 	}
@@ -1283,7 +1395,7 @@ func TestAutocompletePorcelain(t *testing.T) {
 	for _, test := range []struct {
 		name      string
 		wantFiles []*gitStatusFile
-		ctc       *command.CompleteTestCase
+		ctc       *commandtest.CompleteTestCase
 	}{
 		{
 			name: "Completions for add",
@@ -1296,7 +1408,7 @@ func TestAutocompletePorcelain(t *testing.T) {
 				createdCachedModifiedFile,
 				createdCachedDeletedFile,
 			},
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd a ",
 				SkipDataCheck: true,
 			},
@@ -1312,7 +1424,7 @@ func TestAutocompletePorcelain(t *testing.T) {
 				createdCachedModifiedFile,
 				createdCachedDeletedFile,
 			},
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd uc ",
 				SkipDataCheck: true,
 			},
@@ -1328,7 +1440,7 @@ func TestAutocompletePorcelain(t *testing.T) {
 				createdCachedModifiedFile,
 				createdCachedDeletedFile,
 			},
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd ua ",
 				SkipDataCheck: true,
 			},
@@ -1347,7 +1459,7 @@ func TestAutocompletePorcelain(t *testing.T) {
 				createdCachedModifiedFile,
 				createdCachedDeletedFile,
 			},
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd s ",
 				SkipDataCheck: true,
 			},
@@ -1360,10 +1472,10 @@ func TestAutocompletePorcelain(t *testing.T) {
 			for _, f := range allFiles {
 				statuses = append(statuses, f.porcelain...)
 			}
-			test.ctc.RunResponses = []*command.FakeRun{{
+			test.ctc.RunResponses = []*commandtest.FakeRun{{
 				Stdout: statuses,
 			}}
-			test.ctc.WantRunContents = []*command.RunContents{{
+			test.ctc.WantRunContents = []*commandtest.RunContents{{
 				Name: "git",
 				Args: []string{"status", "--porcelain=v2"},
 			}}
@@ -1373,7 +1485,7 @@ func TestAutocompletePorcelain(t *testing.T) {
 			}
 			slices.Sort(test.ctc.Want.Suggestions)
 
-			command.CompleteTest(t, test.ctc)
+			commandertest.AutocompleteTest(t, test.ctc)
 		})
 	}
 }
@@ -1381,81 +1493,81 @@ func TestAutocompletePorcelain(t *testing.T) {
 func TestAutocomplete(t *testing.T) {
 	for _, test := range []struct {
 		name string
-		ctc  *command.CompleteTestCase
+		ctc  *commandtest.CompleteTestCase
 	}{
 		{
 			name: "Completions for diff",
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd d ",
 				SkipDataCheck: true,
 				Want: &command.Autocompletion{
 					Suggestions: []string{"abc", "def"},
 				},
-				WantRunContents: []*command.RunContents{{
+				WantRunContents: []*commandtest.RunContents{{
 					Name: "git",
 					Args: []string{"diff", "--name-only", "--relative"},
 				}},
-				RunResponses: []*command.FakeRun{{
+				RunResponses: []*commandtest.FakeRun{{
 					Stdout: []string{"abc", "def"},
 				}},
 			},
 		},
 		{
 			name: "Completions for diff (case insensitve)",
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd d A",
 				SkipDataCheck: true,
 				Want: &command.Autocompletion{
 					Suggestions: []string{"abc"},
 				},
-				WantRunContents: []*command.RunContents{{
+				WantRunContents: []*commandtest.RunContents{{
 					Name: "git",
 					Args: []string{"diff", "--name-only", "--relative"},
 				}},
-				RunResponses: []*command.FakeRun{{
+				RunResponses: []*commandtest.FakeRun{{
 					Stdout: []string{"abc", "def"},
 				}},
 			},
 		},
 		{
 			name: "Branch completions",
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd ch ",
 				SkipDataCheck: true,
 				Want: &command.Autocompletion{
 					Suggestions: []string{"b-1", "b-3"},
 				},
-				WantRunContents: []*command.RunContents{{
+				WantRunContents: []*commandtest.RunContents{{
 					Name: "git",
 					Args: []string{"branch", "--list"},
 				}},
-				RunResponses: []*command.FakeRun{{
+				RunResponses: []*commandtest.FakeRun{{
 					Stdout: []string{"  b-1 ", "* 	b-2", "		b-3		"},
 				}},
 			},
 		},
 		{
 			name: "Handles no	branch completions",
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd ch ",
 				SkipDataCheck: true,
-				WantRunContents: []*command.RunContents{{
+				WantRunContents: []*commandtest.RunContents{{
 					Name: "git",
 					Args: []string{"branch", "--list"},
 				}},
-				RunResponses: []*command.FakeRun{{}},
+				RunResponses: []*commandtest.FakeRun{{}},
 			},
 		},
 		{
 			name: "Handles branch completion error",
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd ch ",
 				SkipDataCheck: true,
-				WantRunContents: []*command.RunContents{{
+				WantRunContents: []*commandtest.RunContents{{
 					Name: "git",
 					Args: []string{"branch", "--list"},
 				}},
-				RunResponses: []*command.FakeRun{{
+				RunResponses: []*commandtest.FakeRun{{
 					Err: fmt.Errorf("oops"),
 				}},
 				WantErr: fmt.Errorf("failed to fetch autocomplete suggestions with shell command: failed to execute shell command: oops"),
@@ -1463,14 +1575,14 @@ func TestAutocomplete(t *testing.T) {
 		},
 		{
 			name: "PrefixCompleter handles error",
-			ctc: &command.CompleteTestCase{
+			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd a ",
 				SkipDataCheck: true,
-				WantRunContents: []*command.RunContents{{
+				WantRunContents: []*commandtest.RunContents{{
 					Name: "git",
 					Args: []string{"status", "--porcelain=v2"},
 				}},
-				RunResponses: []*command.FakeRun{{
+				RunResponses: []*commandtest.FakeRun{{
 					Err: fmt.Errorf("whoops"),
 				}},
 				WantErr: fmt.Errorf("failed to get git status: failed to execute shell command: whoops"),
@@ -1480,7 +1592,7 @@ func TestAutocomplete(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			g := &git{}
 			test.ctc.Node = g.Node()
-			command.CompleteTest(t, test.ctc)
+			commandertest.AutocompleteTest(t, test.ctc)
 		})
 	}
 }
@@ -1498,7 +1610,7 @@ func TestMetadata(t *testing.T) {
 	})
 
 	t.Run("Fails if unknown OS", func(t *testing.T) {
-		etc := &command.ExecuteTestCase{
+		etc := &commandtest.ExecuteTestCase{
 			Node:            g.Node(),
 			Args:            []string{"pp"},
 			WantErr:         fmt.Errorf(`Unknown OS ("other")`),
@@ -1506,8 +1618,8 @@ func TestMetadata(t *testing.T) {
 			WantExecuteData: &command.ExecuteData{Executable: []string{""}, FunctionWrap: true},
 		}
 		fos := &fakeOS{sourcerer.Linux(), "other"}
-		command.StubValue(t, &sourcerer.CurrentOS, fos.os())
-		command.ExecuteTest(t, etc)
+		commandtest.StubValue(t, &sourcerer.CurrentOS, fos.os())
+		commandertest.ExecuteTest(t, etc)
 	})
 }
 
