@@ -69,7 +69,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ cp MESSAGE [ MESSAGE ... ] --no-verify|-n`,
 		`┃`,
 		`┃   `,
-		`┣━━ d [ FILE ... ] --commit|-c --main|-m --whitespace|-w`,
+		`┣━━ d [ FILE ... ] --main|-m --commit|-c --whitespace|-w`,
 		`┃`,
 		`┃   Git fetch`,
 		`┣━━ f`,
