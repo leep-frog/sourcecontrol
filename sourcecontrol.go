@@ -103,7 +103,7 @@ var (
 		1, command.UnboundedList,
 		redFileCompleter,
 	)
-	gitLogArg      = commander.OptionalArg[int]("N", "Number of git logs to display", commander.Positive[int](), commander.Default(1))
+	gitLogArg      = commander.OptionalArg[int]("N", "Number of git logs to display", commander.NonNegative[int](), commander.Default(1))
 	gitLogDiffFlag = commander.BoolFlag("diff", 'd', "Whether or not to diff the current changes against N commits prior")
 	stashArgs      = commander.ListArg[string](
 		"STASH_ARGS", "Args to pass to `git stash push/pop`",
@@ -412,7 +412,6 @@ func (g *git) Node() command.Node {
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					if gitLogDiffFlag.Get(d) {
 						return []string{
-							// Default to HEAD~1 because diffing against the same commit is just "gd" behavior.
 							fmt.Sprintf("git diff HEAD~%d", gitLogArg.Get(d)),
 						}, nil
 					}

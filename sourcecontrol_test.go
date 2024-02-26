@@ -130,7 +130,7 @@ func TestExecution(t *testing.T) {
 		`  MESSAGE: Commit message`,
 		`  N: Number of git logs to display`,
 		`    Default: 1`,
-		`    Positive()`,
+		`    NonNegative()`,
 		"  STASH_ARGS: Args to pass to `git stash push/pop`",
 		``,
 		`Flags:`,
