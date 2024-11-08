@@ -355,10 +355,9 @@ func (g *git) Node() command.Node {
 				),
 			),
 			"p": commander.SerialNodes(
+				commander.Description("Push"),
 				commander.FlagProcessor(pushUpstreamFlag),
 				commander.IfData(pushUpstreamFlag.Name(), currentBranchArg),
-				// TODO: don't update description in ShellCommand arg
-				commander.Description("Push"),
 				sshNode,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					if pushUpstreamFlag.Get(d) {

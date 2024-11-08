@@ -6,7 +6,7 @@ toolchain go1.23.2
 
 require (
 	github.com/google/go-cmp v0.6.0
-	github.com/leep-frog/command v0.0.0-20241026181131-202fd0e5dbc0
+	github.com/leep-frog/command v0.0.0-20241108042226-208312852623
 	github.com/leep-frog/functional v0.0.0-20241026181418-8f5b7b34c6c0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
 )
