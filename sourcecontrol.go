@@ -110,6 +110,17 @@ var (
 		0, command.UnboundedList,
 		allFileCompleter,
 	)
+	pushUpstreamFlag = commander.BoolFlag("upstream", 'u', "If set, push branch to upstream")
+	currentBranchArg = &commander.ShellCommand[string]{
+		ArgName:     "CURRENT_BRANCH",
+		CommandName: "git",
+		Args: []string{
+			"rev-parse",
+			"--abbrev-ref",
+			"HEAD",
+		},
+		DontRunOnComplete: true,
+	}
 )
 
 func CLI() *git {
@@ -146,6 +157,7 @@ func GitAliasers() sourcerer.Option {
 		"gcnv": {"g", "c", "-n"},
 		"cm":   {"g", "m"},
 		"gcb":  {"g", "ch"},
+		"gnb":  {"g", "ch", "-n"},
 		"gmm":  {"g", "mm"},
 		"mm":   {"g", "mm"},
 		"gcp":  {"g", "cp"},
@@ -343,11 +355,19 @@ func (g *git) Node() command.Node {
 				),
 			),
 			"p": commander.SerialNodes(
+				commander.FlagProcessor(pushUpstreamFlag),
+				commander.IfData(pushUpstreamFlag.Name(), currentBranchArg),
+				// TODO: don't update description in ShellCommand arg
 				commander.Description("Push"),
 				sshNode,
-				commander.SimpleExecutableProcessor(
-					"git push",
-				),
+				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+					if pushUpstreamFlag.Get(d) {
+						pushCmd := fmt.Sprintf("git push --set-upstream origin %q", currentBranchArg.Get(d))
+						o.Stdoutln(pushCmd)
+						return []string{pushCmd}, nil
+					}
+					return []string{"git push"}, nil
+				}),
 			),
 			"pp": commander.SerialNodes(
 				commander.Description("Pull and push"),

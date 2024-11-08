@@ -90,7 +90,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ op [ STASH_ARGS ... ]`,
 		`┃`,
 		`┃   Push`,
-		`┣━━ p`,
+		`┣━━ p --upstream|-u`,
 		`┃`,
 		`┃   Pull and push`,
 		`┣━━ pp`,
@@ -142,6 +142,7 @@ func TestExecution(t *testing.T) {
 		`  [n] new-branch: Whether or not to checkout a new branch`,
 		`  [n] no-verify: Whether or not to run pre-commit checks`,
 		`  [p] push: Whether or not to push afterwards`,
+		`  [u] upstream: If set, push branch to upstream`,
 		`  [w] whitespace: Whether or not to show whitespace in diffs`,
 	}, "\n")
 
@@ -487,6 +488,44 @@ func TestExecution(t *testing.T) {
 				etc: &commandtest.ExecuteTestCase{
 					Args:            []string{"p"},
 					WantExecuteData: &command.ExecuteData{Executable: []string{"", "git push"}, FunctionWrap: true},
+				},
+			},
+			{
+				name: "push upstream fails if can't get branch",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"p", "--upstream"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+						Err:    fmt.Errorf("failed to get some-branch"),
+					}},
+					WantStderr: "failed to execute shell command: failed to get some-branch\n",
+					WantErr:    fmt.Errorf("failed to execute shell command: failed to get some-branch"),
+					WantData: &command.Data{Values: map[string]interface{}{
+						pushUpstreamFlag.Name(): true,
+					}},
+				},
+			},
+			{
+				name: "push upstream succeeds",
+				etc: &commandtest.ExecuteTestCase{
+					Args:            []string{"p", "--upstream"},
+					WantExecuteData: &command.ExecuteData{Executable: []string{"", `git push --set-upstream origin "some-branch"`}, FunctionWrap: true},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						pushUpstreamFlag.Name(): true,
+						"CURRENT_BRANCH":        "some-branch",
+					}},
+					WantStdout: "git push --set-upstream origin \"some-branch\"\n",
 				},
 			},
 			{
