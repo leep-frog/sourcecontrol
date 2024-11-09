@@ -158,6 +158,7 @@ func GitAliasers() sourcerer.Option {
 		"cm":   {"g", "m"},
 		"gcb":  {"g", "ch"},
 		"gnb":  {"g", "ch", "-n"},
+		"gbn":  {"g", "ch", "-n"},
 		"gmm":  {"g", "mm"},
 		"mm":   {"g", "mm"},
 		"gcp":  {"g", "cp"},
