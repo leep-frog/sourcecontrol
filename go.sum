@@ -6,6 +6,8 @@ github.com/leep-frog/command v0.0.0-20241026181131-202fd0e5dbc0 h1:xWpB31VZpgFen
 github.com/leep-frog/command v0.0.0-20241026181131-202fd0e5dbc0/go.mod h1:8A0syaeqGn1XYRbIqIS0ythKToduiClOQKc1r1V6mJ0=
 github.com/leep-frog/command v0.0.0-20241108042226-208312852623 h1:frYc3140Ph3Bzv1UiECycNbhNz8fCNI+1ZD6i/zvfJI=
 github.com/leep-frog/command v0.0.0-20241108042226-208312852623/go.mod h1:8A0syaeqGn1XYRbIqIS0ythKToduiClOQKc1r1V6mJ0=
+github.com/leep-frog/command v0.0.0-20241112011913-d3a427859376 h1:2ecM2CVoNZTCv6soVrsnePszWula/9mVJQ7lmPAAUKc=
+github.com/leep-frog/command v0.0.0-20241112011913-d3a427859376/go.mod h1:8A0syaeqGn1XYRbIqIS0ythKToduiClOQKc1r1V6mJ0=
 github.com/leep-frog/functional v0.0.0-20241026181418-8f5b7b34c6c0 h1:DwZ4TPOxivXUcEvVhWxYblf63TnOYCwC+SmpA26MriE=
 github.com/leep-frog/functional v0.0.0-20241026181418-8f5b7b34c6c0/go.mod h1:lAZlidgRiDtfilnalfNWa+JBMzwGcYj5dWyGaSUWp5k=
 golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c h1:7dEasQXItcW1xKJ2+gg5VOiBnqWrJc+rq0DPKyvvdbY=

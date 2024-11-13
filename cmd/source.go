@@ -9,6 +9,7 @@ import (
 
 func main() {
 	os.Exit(sourcerer.Source(
+		"sourcecontrolCLI",
 		[]sourcerer.CLI{sourcecontrol.CLI()},
 		sourcecontrol.GitAliasers(),
 	))
