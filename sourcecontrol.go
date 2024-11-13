@@ -427,12 +427,13 @@ func (g *git) Node() command.Node {
 				commander.Description("Git log"),
 				commander.FlagProcessor(
 					gitLogDiffFlag,
+					whitespaceFlag,
 				),
 				gitLogArg,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					if gitLogDiffFlag.Get(d) {
 						return []string{
-							fmt.Sprintf("git diff HEAD~%d", gitLogArg.Get(d)),
+							fmt.Sprintf("git diff HEAD~%d %v", gitLogArg.Get(d), whitespaceFlag.Get(d)),
 						}, nil
 					}
 					return []string{

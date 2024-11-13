@@ -76,7 +76,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ [l|pl]`,
 		`┃`,
 		`┃   Git log`,
-		`┣━━ lg [ N ] --diff|-d`,
+		`┣━━ lg [ N ] --diff|-d --whitespace|-w`,
 		`┃`,
 		`┃   Checkout main`,
 		`┣━━ m`,
@@ -238,7 +238,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
-							"git diff HEAD~1",
+							"git diff HEAD~1 ",
 						},
 					},
 				},
@@ -253,7 +253,39 @@ func TestExecution(t *testing.T) {
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
-							"git diff HEAD~7",
+							"git diff HEAD~7 ",
+						},
+					},
+				},
+			},
+			{
+				name: "git log diff with no args and whitespace flag",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"lg", "-d", "-w"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						gitLogArg.Name():      1,
+						gitLogDiffFlag.Name(): true,
+						whitespaceFlag.Name(): "-w",
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"git diff HEAD~1 -w",
+						},
+					},
+				},
+			},
+			{
+				name: "git log diff with args and whitespace flag",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"lg", "-d", "7", "-w"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						gitLogArg.Name():      7,
+						gitLogDiffFlag.Name(): true,
+						whitespaceFlag.Name(): "-w",
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"git diff HEAD~7 -w",
 						},
 					},
 				},
