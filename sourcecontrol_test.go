@@ -1020,7 +1020,7 @@ func TestExecution(t *testing.T) {
 				},
 			},
 			{
-				name: "add with args args",
+				name: "add with args",
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"a", "file.one", "some/where/file.2"},
 					WantData: &command.Data{Values: map[string]interface{}{
@@ -1028,6 +1028,38 @@ func TestExecution(t *testing.T) {
 							"file.one",
 							"some/where/file.2",
 						},
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git add file.one some/where/file.2`,
+						},
+					},
+				},
+			},
+			{
+				name: "add with no args and no-op flag",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"a", "-w"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						noopWhitespaceFlag.Name(): true,
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git add .`,
+						},
+					},
+				},
+			},
+			{
+				name: "add with args and no-op flag",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"a", "file.one", "some/where/file.2", "--whitespace"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						filesArg.Name(): []string{
+							"file.one",
+							"some/where/file.2",
+						},
+						noopWhitespaceFlag.Name(): true,
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
