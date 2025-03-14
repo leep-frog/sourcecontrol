@@ -42,7 +42,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ b`,
 		`┃`,
 		`┃   Delete branch`,
-		`┣━━ bd BRANCH --force-delete|-f`,
+		`┣━━ bd BRANCH [ BRANCH ... ] --force-delete|-f`,
 		`┃`,
 		`┃   Commit`,
 		`┣━━ c MESSAGE [ MESSAGE ... ] --no-verify|-n --push|-p`,
@@ -882,31 +882,29 @@ func TestExecution(t *testing.T) {
 				},
 			},
 			{
-				name: "delete branch requires one arg",
-				etc: &commandtest.ExecuteTestCase{
-					Args: []string{"bd", "tree", "limb"},
-					WantData: &command.Data{Values: map[string]interface{}{
-						branchArg.Name(): "tree",
-					}},
-					WantExecuteData: &command.ExecuteData{
-						Executable: []string{
-							`git branch -d tree`,
-						},
-					},
-					WantStderr: fmt.Sprintf("Unprocessed extra args: [limb]\n\n%s\n%s\n", "======= Command Usage =======", u),
-					WantErr:    fmt.Errorf(`Unprocessed extra args: [limb]`),
-				},
-			},
-			{
 				name: "deletes a branch",
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"bd", "tree"},
 					WantData: &command.Data{Values: map[string]interface{}{
-						branchArg.Name(): "tree",
+						branchesArg.Name(): []string{"tree"},
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
-							`git branch -d tree`,
+							`git branch -d "tree"`,
+						},
+					},
+				},
+			},
+			{
+				name: "deletes multiple branchess",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"bd", "tree", "limb"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						branchesArg.Name(): []string{"tree", "limb"},
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git branch -d "tree" "limb"`,
 						},
 					},
 				},
@@ -916,12 +914,12 @@ func TestExecution(t *testing.T) {
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"bd", "-f", "tree"},
 					WantData: &command.Data{Values: map[string]interface{}{
-						branchArg.Name():   "tree",
+						branchArg.Name():   []string{"tree"},
 						forceDelete.Name(): true,
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
-							`git branch -D tree`,
+							`git branch -D "tree"`,
 						},
 					},
 				},
@@ -1630,6 +1628,7 @@ func TestAutocomplete(t *testing.T) {
 				}},
 			},
 		},
+		// Branch completion tests
 		{
 			name: "Branch completions",
 			ctc: &commandtest.CompleteTestCase{
@@ -1687,6 +1686,59 @@ func TestAutocomplete(t *testing.T) {
 					Err: fmt.Errorf("whoops"),
 				}},
 				WantErr: fmt.Errorf("failed to get git status: failed to execute shell command: whoops"),
+			},
+		},
+		// Branches completion tests
+		{
+			name: "Branches completions",
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd bd ",
+				SkipDataCheck: true,
+				Want: &command.Autocompletion{
+					Suggestions: []string{"b-1", "b-3"},
+				},
+				WantRunContents: []*commandtest.RunContents{{
+					Name: "git",
+					Args: []string{"branch", "--list"},
+				}},
+				RunResponses: []*commandtest.FakeRun{{
+					Stdout: []string{"  b-1 ", "* 	b-2", "		b-3		"},
+				}},
+			},
+		},
+		{
+			name: "Branches completions is distinct",
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd bd b-1 ",
+				SkipDataCheck: true,
+				Want: &command.Autocompletion{
+					Suggestions: []string{"b-3"},
+				},
+				WantRunContents: []*commandtest.RunContents{{
+					Name: "git",
+					Args: []string{"branch", "--list"},
+				}},
+				RunResponses: []*commandtest.FakeRun{{
+					Stdout: []string{"  b-1 ", "* 	b-2", "		b-3		"},
+				}},
+			},
+		},
+		{
+			name: "Branches completions handles error",
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd bd ",
+				SkipDataCheck: true,
+				// Want: &command.Autocompletion{
+				// 	Suggestions: []string{"b-3"},
+				// },
+				WantRunContents: []*commandtest.RunContents{{
+					Name: "git",
+					Args: []string{"branch", "--list"},
+				}},
+				RunResponses: []*commandtest.FakeRun{{
+					Err: fmt.Errorf("oh no"),
+				}},
+				WantErr: fmt.Errorf("failed to fetch autocomplete suggestions with shell command: failed to execute shell command: oh no"),
 			},
 		},
 	} {

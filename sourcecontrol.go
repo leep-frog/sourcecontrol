@@ -57,10 +57,17 @@ var (
 	nvFlag     = commander.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
 	pushFlag   = commander.BoolFlag("push", 'p', "Whether or not to push afterwards")
 	messageArg = commander.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
-	branchArg  = commander.Arg[string](
+	branchArg  = commander.Arg(
 		"BRANCH",
 		"Branch",
 		BranchCompleter(),
+	)
+	branchesArg = commander.ListArg(
+		"BRANCH",
+		"Branch",
+		1,
+		command.UnboundedList,
+		BranchesCompleter(),
 	)
 	mainFlag       = commander.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
 	prevCommitFlag = commander.BoolFlag("commit", 'c', "Whether to diff against the previous commit")
@@ -128,20 +135,35 @@ func CLI() *git {
 	return &git{}
 }
 
+func branchCompleter(s string, d *command.Data) (*command.Completion, error) {
+	c, err := commander.ShellCommandCompleter[string]("git", "branch", "--list").Complete(s, d)
+	if c == nil || err != nil {
+		return c, err
+	}
+
+	var r []string
+	for _, s := range c.Suggestions {
+		if !strings.Contains(s, "*") {
+			r = append(r, strings.TrimSpace(s))
+		}
+	}
+	c.Suggestions = r
+	return c, nil
+}
+
 func BranchCompleter() commander.Completer[string] {
-	return commander.CompleterFromFunc(func(s string, d *command.Data) (*command.Completion, error) {
-		c, err := commander.ShellCommandCompleter[string]("git", "branch", "--list").Complete(s, d)
+	return commander.CompleterFromFunc[string](branchCompleter)
+}
+
+func BranchesCompleter() commander.Completer[[]string] {
+
+	return commander.CompleterFromFunc[[]string](func(ss []string, d *command.Data) (*command.Completion, error) {
+		c, err := branchCompleter(ss[len(ss)-1], d)
 		if c == nil || err != nil {
 			return c, err
 		}
 
-		var r []string
-		for _, s := range c.Suggestions {
-			if !strings.Contains(s, "*") {
-				r = append(r, strings.TrimSpace(s))
-			}
-		}
-		c.Suggestions = r
+		c.Distinct = true
 		return c, nil
 	})
 }
@@ -558,14 +580,19 @@ func (g *git) Node() command.Node {
 			"bd": commander.SerialNodes(
 				commander.Description("Delete branch"),
 				commander.FlagProcessor(forceDelete),
-				branchArg,
+				branchesArg,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					flag := "-d"
 					if forceDelete.Get(d) {
 						flag = "-D"
 					}
+
+					var branches []string
+					for _, b := range branchesArg.Get(d) {
+						branches = append(branches, fmt.Sprintf("%q", b))
+					}
 					return []string{
-						fmt.Sprintf("git branch %s %s", flag, branchArg.Get(d)),
+						fmt.Sprintf("git branch %s %s", flag, strings.Join(branches, " ")),
 					}, nil
 				}),
 			),
