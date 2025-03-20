@@ -203,6 +203,7 @@ func GitAliasers() sourcerer.Option {
 type git struct {
 	MainBranches  map[string]string
 	DefaultBranch string
+	ParentBranch  map[string]string
 	changed       bool
 }
 
@@ -564,14 +565,23 @@ func (g *git) Node() command.Node {
 				commander.FlagProcessor(
 					newBranchFlag,
 				),
+				currentBranchArg,
 				branchArg,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+
+					branchName := branchArg.Get(d)
+
 					flag := ""
 					if newBranchFlag.Get(d) {
 						flag = "-b "
+						if g.ParentBranch == nil {
+							g.ParentBranch = map[string]string{}
+						}
+						g.ParentBranch[branchName] = currentBranchArg.Get(d)
+						g.changed = true
 					}
 					return []string{
-						fmt.Sprintf("git checkout %s%s", flag, branchArg.Get(d)),
+						fmt.Sprintf("git checkout %s%s", flag, branchName),
 					}, nil
 				}),
 			),

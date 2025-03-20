@@ -820,9 +820,34 @@ func TestExecution(t *testing.T) {
 			},
 			// Checkout new branch
 			{
+				name: "checkout branch requires current branch",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"ch"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Err: fmt.Errorf("whoops"),
+					}},
+					WantStderr: "failed to execute shell command: whoops\n",
+					WantErr:    fmt.Errorf(`failed to execute shell command: whoops`),
+				},
+			},
+			{
 				name: "checkout branch requires arg",
 				etc: &commandtest.ExecuteTestCase{
-					Args:       []string{"ch"},
+					Args: []string{"ch"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "some-branch",
+					}},
 					WantStderr: "Argument \"BRANCH\" requires at least 1 argument, got 0\n",
 					WantErr:    fmt.Errorf(`Argument "BRANCH" requires at least 1 argument, got 0`),
 				},
@@ -831,8 +856,16 @@ func TestExecution(t *testing.T) {
 				name: "checkout branch requires one arg",
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ch", "tree", "limb"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						branchArg.Name(): "tree",
+						branchArg.Name():         "tree",
+						currentBranchArg.ArgName: "some-branch",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -847,8 +880,16 @@ func TestExecution(t *testing.T) {
 				name: "checks out a branch",
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ch", "tree"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						branchArg.Name(): "tree",
+						branchArg.Name():         "tree",
+						currentBranchArg.ArgName: "some-branch",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -858,17 +899,97 @@ func TestExecution(t *testing.T) {
 				},
 			},
 			{
-				name: "checks out a new branch",
+				name: "checks out a new branch - creates map",
+				g:    &git{},
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ch", "tree", "-n"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						branchArg.Name():     "tree",
-						newBranchFlag.Name(): true,
+						branchArg.Name():         "tree",
+						newBranchFlag.Name():     true,
+						currentBranchArg.ArgName: "some-branch",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
 							`git checkout -b tree`,
 						},
+					},
+				},
+				want: &git{
+					ParentBranch: map[string]string{
+						"tree": "some-branch",
+					},
+				},
+			},
+			{
+				name: "checks out a new branch - adds to map",
+				g: &git{
+					ParentBranch: map[string]string{},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"ch", "tree", "-n"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						branchArg.Name():         "tree",
+						newBranchFlag.Name():     true,
+						currentBranchArg.ArgName: "some-branch",
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git checkout -b tree`,
+						},
+					},
+				},
+				want: &git{
+					ParentBranch: map[string]string{
+						"tree": "some-branch",
+					},
+				},
+			},
+			{
+				name: "checks out a new branch - overrides value in map",
+				g: &git{
+					ParentBranch: map[string]string{
+						"tree":  "old-branch",
+						"other": "other-branch",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"ch", "tree", "-n"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						branchArg.Name():         "tree",
+						newBranchFlag.Name():     true,
+						currentBranchArg.ArgName: "some-branch",
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git checkout -b tree`,
+						},
+					},
+				},
+				want: &git{
+					ParentBranch: map[string]string{
+						"tree":  "some-branch",
+						"other": "other-branch",
 					},
 				},
 			},
