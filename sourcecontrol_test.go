@@ -93,6 +93,9 @@ func TestExecution(t *testing.T) {
 		`┃   Pull and push`,
 		`┣━━ pp`,
 		`┃`,
+		`┃   Get PR link`,
+		`┣━━ pr-link`,
+		`┃`,
 		`┣━━ rb ┓`,
 		`┃   ┏━━┛`,
 		`┃   ┃`,
@@ -351,7 +354,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -372,7 +375,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -393,7 +396,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -415,7 +418,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -439,7 +442,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -458,7 +461,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -479,7 +482,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -503,7 +506,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -1250,7 +1253,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -1268,7 +1271,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name(): "test-repo",
 						diffArgs.Name(): []string{
 							"this.file",
 							"that/file/txt",
@@ -1290,7 +1293,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "test-repo",
+						repoUrl.Name():  "test-repo",
 						mainFlag.Name(): true,
 					}},
 					WantExecuteData: &command.ExecuteData{
@@ -1309,7 +1312,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name():       "test-repo",
+						repoUrl.Name():        "test-repo",
 						prevCommitFlag.Name(): true,
 					}},
 					WantExecuteData: &command.ExecuteData{
@@ -1328,7 +1331,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name():       "test-repo",
+						repoUrl.Name():        "test-repo",
 						whitespaceFlag.Name(): "-w",
 					}},
 					WantExecuteData: &command.ExecuteData{
@@ -1409,7 +1412,7 @@ func TestExecution(t *testing.T) {
 						},
 					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name():   "some-repo",
+						repoUrl.Name():    "some-repo",
 						defRepoArg.Name(): "db",
 					}},
 					RunResponses: []*commandtest.FakeRun{{
@@ -1435,7 +1438,7 @@ func TestExecution(t *testing.T) {
 						},
 					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name():     "some-repo",
+						repoUrl.Name():      "some-repo",
 						defRepoArg.Name():   "Maine",
 						globalConfig.Name(): true,
 					}},
@@ -1469,7 +1472,7 @@ func TestExecution(t *testing.T) {
 						},
 					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "some-repo",
+						repoUrl.Name(): "some-repo",
 					}},
 					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"some-repo"},
@@ -1491,7 +1494,7 @@ func TestExecution(t *testing.T) {
 						},
 					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "some-repo",
+						repoUrl.Name(): "some-repo",
 					}},
 					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"some-repo"},
@@ -1517,7 +1520,7 @@ func TestExecution(t *testing.T) {
 						},
 					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name(): "some-repo",
+						repoUrl.Name(): "some-repo",
 					}},
 					RunResponses: []*commandtest.FakeRun{{
 						Stdout: []string{"some-repo"},
@@ -1542,7 +1545,7 @@ func TestExecution(t *testing.T) {
 						},
 					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoName.Name():     "some-repo",
+						repoUrl.Name():      "some-repo",
 						globalConfig.Name(): true,
 					}},
 					RunResponses: []*commandtest.FakeRun{{
@@ -1551,6 +1554,311 @@ func TestExecution(t *testing.T) {
 					WantStdout: "Deleting global default branch\n",
 				},
 			},
+			// pr-link tests
+			{
+				name: "pr-link requires current branch",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"pr-link"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{
+							"rev-parse",
+							"--abbrev-ref",
+							"HEAD",
+						},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Err: fmt.Errorf("oops"),
+					}},
+					WantStderr: "failed to execute shell command: oops\n",
+					WantErr:    fmt.Errorf("failed to execute shell command: oops"),
+				},
+			},
+			{
+				name: "pr-link requires repo url",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"pr-link"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+						{
+							Name: "git",
+							Args: []string{
+								"config",
+								"--get",
+								"remote.origin.url",
+							},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"tree-branch"},
+						},
+						{
+							Err: fmt.Errorf("oh no"),
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+					}},
+					WantStderr: "failed to execute shell command: oh no\n",
+					WantErr:    fmt.Errorf("failed to execute shell command: oh no"),
+				},
+			},
+			{
+				name: "pr-link requires repo with valid format",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"pr-link"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+						{
+							Name: "git",
+							Args: []string{
+								"config",
+								"--get",
+								"remote.origin.url",
+							},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"tree-branch"},
+						},
+						{
+							Stdout: []string{"some-new-format:org/repo.git"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+						repoUrl.ArgName:          "some-new-format:org/repo.git",
+					}},
+					WantStderr: "Unknown git url format: some-new-format:org/repo.git\n",
+					WantErr:    fmt.Errorf("Unknown git url format: some-new-format:org/repo.git"),
+				},
+			},
+			{
+				name: "pr-link fails if no parent branch or default main branch",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"pr-link"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+						{
+							Name: "git",
+							Args: []string{
+								"config",
+								"--get",
+								"remote.origin.url",
+							},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"tree-branch"},
+						},
+						{
+							Stdout: []string{"git@github.com:user/repo.git"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+						repoUrl.ArgName:          "git@github.com:user/repo.git",
+					}},
+					WantStderr: "Unknown parent branch for branch tree-branch; and no default main branch set\n",
+					WantErr:    fmt.Errorf("Unknown parent branch for branch tree-branch; and no default main branch set"),
+				},
+			},
+			{
+				name: "pr-link works if parent branch set",
+				g: &git{
+					ParentBranches: map[string]string{
+						"tree-branch": "trunk",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"pr-link"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+						{
+							Name: "git",
+							Args: []string{
+								"config",
+								"--get",
+								"remote.origin.url",
+							},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"tree-branch"},
+						},
+						{
+							Stdout: []string{"git@github.com:user/repo.git"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+						repoUrl.ArgName:          "git@github.com:user/repo.git",
+					}},
+					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expanded=1\n",
+				},
+			},
+			{
+				name: "pr-link works if default main branch set",
+				g: &git{
+					MainBranches: map[string]string{
+						"git@github.com:user/repo.git": "maine",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"pr-link"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+						{
+							Name: "git",
+							Args: []string{
+								"config",
+								"--get",
+								"remote.origin.url",
+							},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"tree-branch"},
+						},
+						{
+							Stdout: []string{"git@github.com:user/repo.git"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+						repoUrl.ArgName:          "git@github.com:user/repo.git",
+					}},
+					WantStdout: "https://github.com/user/repo/compare/maine...tree-branch?expanded=1\n",
+				},
+			},
+			{
+				name: "pr-link uses parent branch over default main branch",
+				g: &git{
+					ParentBranches: map[string]string{
+						"tree-branch": "trunk",
+					},
+					MainBranches: map[string]string{
+						"git@github.com:user/repo.git": "maine",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"pr-link"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+						{
+							Name: "git",
+							Args: []string{
+								"config",
+								"--get",
+								"remote.origin.url",
+							},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"tree-branch"},
+						},
+						{
+							Stdout: []string{"git@github.com:user/repo.git"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+						repoUrl.ArgName:          "git@github.com:user/repo.git",
+					}},
+					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expanded=1\n",
+				},
+			},
+			{
+				name: "pr-link works for https remote origin",
+				g: &git{
+					ParentBranches: map[string]string{
+						"tree-branch": "trunk",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"pr-link"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+						{
+							Name: "git",
+							Args: []string{
+								"config",
+								"--get",
+								"remote.origin.url",
+							},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"tree-branch"},
+						},
+						{
+							Stdout: []string{"https://github.com/user/repo.git"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+						repoUrl.ArgName:          "https://github.com/user/repo.git",
+					}},
+					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expanded=1\n",
+				},
+			},
+			/* Useful for commenting out tests. */
 		} {
 			t.Run(fmt.Sprintf("[%s] %s", curOS.Name(), test.name), func(t *testing.T) {
 				commandtest.StubValue(t, &sourcerer.CurrentOS, curOS)

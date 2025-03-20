@@ -81,7 +81,7 @@ var (
 	filesArg         = commander.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, redFileCompleter)
 	allFileCompleter = PrefixCompleter[[]string](true, regexp.MustCompile(".*"))
 	statusFilesArg   = commander.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, allFileCompleter)
-	repoName         = &commander.ShellCommand[string]{
+	repoUrl          = &commander.ShellCommand[string]{
 		ArgName:     "REPO",
 		CommandName: "git",
 		Args: []string{
@@ -197,6 +197,7 @@ func GitAliasers() sourcerer.Option {
 		"gam":  {"g", "am"},
 		"gop":  {"g", "op"},
 		"gush": {"g", "ush"},
+		"gl":   {"g", "pr-link"},
 	})
 }
 
@@ -220,7 +221,7 @@ func (g *git) GetDefaultBranch(d *command.Data) string {
 		}
 		return g.DefaultBranch
 	}
-	if m, ok := g.MainBranches[repoName.Get(d)]; ok {
+	if m, ok := g.MainBranches[repoUrl.Get(d)]; ok {
 		return m
 	}
 	if len(g.DefaultBranch) == 0 {
@@ -318,7 +319,7 @@ func (g *git) Node() command.Node {
 								),
 								"set": commander.SerialNodes(
 									commander.FlagProcessor(globalConfig),
-									repoName,
+									repoUrl,
 									defRepoArg,
 									&commander.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
 										g.changed = true
@@ -332,14 +333,14 @@ func (g *git) Node() command.Node {
 										if g.MainBranches == nil {
 											g.MainBranches = map[string]string{}
 										}
-										g.MainBranches[repoName.Get(d)] = defRepoArg.Get(d)
-										o.Stdoutf("Setting default branch for %s to %s\n", repoName.Get(d), defRepoArg.Get(d))
+										g.MainBranches[repoUrl.Get(d)] = defRepoArg.Get(d)
+										o.Stdoutf("Setting default branch for %s to %s\n", repoUrl.Get(d), defRepoArg.Get(d))
 										return nil
 									}},
 								),
 								"unset": commander.SerialNodes(
 									commander.FlagProcessor(globalConfig),
-									repoName,
+									repoUrl,
 									&commander.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
 										if globalConfig.Get(d) {
 											g.DefaultBranch = ""
@@ -352,7 +353,7 @@ func (g *git) Node() command.Node {
 											o.Stdoutln("No default branch set for this repo")
 											return nil
 										}
-										rn := repoName.Get(d)
+										rn := repoUrl.Get(d)
 										if _, ok := g.MainBranches[rn]; !ok {
 											o.Stdoutln("No default branch set for this repo")
 											return nil
@@ -468,7 +469,7 @@ func (g *git) Node() command.Node {
 			// Checkout main
 			"m": commander.SerialNodes(
 				commander.Description("Checkout main"),
-				repoName,
+				repoUrl,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
 						fmt.Sprintf("git checkout %s", g.GetDefaultBranch(d)),
@@ -478,7 +479,7 @@ func (g *git) Node() command.Node {
 			// Merge main
 			"mm": commander.SerialNodes(
 				commander.Description("Merge main"),
-				repoName,
+				repoUrl,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					return []string{
 						fmt.Sprintf("git merge %s", g.GetDefaultBranch(d)),
@@ -560,6 +561,34 @@ func (g *git) Node() command.Node {
 			),*/
 
 			// Checkout branch
+			"pr-link": commander.SerialNodes(
+				commander.Description("Get PR link"),
+				currentBranchArg,
+				repoUrl,
+				commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
+					url := repoUrl.Get(d)
+					orgRepo := strings.TrimSuffix(url, ".git")
+					if strings.Contains(url, "git@") {
+						orgRepo = strings.TrimPrefix(orgRepo, "git@github.com:")
+					} else if strings.Contains(url, "https:") {
+						orgRepo = strings.TrimPrefix(orgRepo, "https://github.com/")
+					} else {
+						return o.Stderrf("Unknown git url format: %s\n", url)
+					}
+
+					cb := currentBranchArg.Get(d)
+
+					if pb, ok := g.ParentBranches[cb]; ok {
+						o.Stdoutf("https://github.com/%s/compare/%s...%s?expanded=1\n", orgRepo, pb, cb)
+						return nil
+					} else if mb, ok := g.MainBranches[url]; ok {
+						o.Stdoutf("https://github.com/%s/compare/%s...%s?expanded=1\n", orgRepo, mb, cb)
+						return nil
+					} else {
+						return o.Stderrf("Unknown parent branch for branch %s; and no default main branch set\n", cb)
+					}
+				}, nil),
+			),
 			"ch": commander.SerialNodes(
 				commander.Description("Checkout new branch"),
 				commander.FlagProcessor(
@@ -624,7 +653,7 @@ func (g *git) Node() command.Node {
 					whitespaceFlag,
 				),
 				diffArgs,
-				repoName,
+				repoUrl,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					branch := "--"
 					if mainFlag.Get(d) {
