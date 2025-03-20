@@ -922,7 +922,7 @@ func TestExecution(t *testing.T) {
 					},
 				},
 				want: &git{
-					ParentBranch: map[string]string{
+					ParentBranches: map[string]string{
 						"tree": "some-branch",
 					},
 				},
@@ -930,7 +930,7 @@ func TestExecution(t *testing.T) {
 			{
 				name: "checks out a new branch - adds to map",
 				g: &git{
-					ParentBranch: map[string]string{},
+					ParentBranches: map[string]string{},
 				},
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ch", "tree", "-n"},
@@ -953,7 +953,7 @@ func TestExecution(t *testing.T) {
 					},
 				},
 				want: &git{
-					ParentBranch: map[string]string{
+					ParentBranches: map[string]string{
 						"tree": "some-branch",
 					},
 				},
@@ -961,7 +961,7 @@ func TestExecution(t *testing.T) {
 			{
 				name: "checks out a new branch - overrides value in map",
 				g: &git{
-					ParentBranch: map[string]string{
+					ParentBranches: map[string]string{
 						"tree":  "old-branch",
 						"other": "other-branch",
 					},
@@ -987,13 +987,13 @@ func TestExecution(t *testing.T) {
 					},
 				},
 				want: &git{
-					ParentBranch: map[string]string{
+					ParentBranches: map[string]string{
 						"tree":  "some-branch",
 						"other": "other-branch",
 					},
 				},
 			},
-			// Delete new branch
+			// Delete branch
 			{
 				name: "delete branch requires arg",
 				etc: &commandtest.ExecuteTestCase{
@@ -1017,7 +1017,32 @@ func TestExecution(t *testing.T) {
 				},
 			},
 			{
-				name: "deletes multiple branchess",
+				name: "deletes a branch in ParentBranches",
+				g: &git{
+					ParentBranches: map[string]string{
+						"abc":  "def",
+						"tree": "root",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"bd", "tree"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						branchesArg.Name(): []string{"tree"},
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git branch -d "tree"`,
+						},
+					},
+				},
+				want: &git{
+					ParentBranches: map[string]string{
+						"abc": "def",
+					},
+				},
+			},
+			{
+				name: "deletes multiple branches",
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"bd", "tree", "limb"},
 					WantData: &command.Data{Values: map[string]interface{}{
@@ -1027,6 +1052,34 @@ func TestExecution(t *testing.T) {
 						Executable: []string{
 							`git branch -d "tree" "limb"`,
 						},
+					},
+				},
+			},
+			{
+				name: "deletes multiple branches from ParentBranches",
+				g: &git{
+					ParentBranches: map[string]string{
+						"abc":   "def",
+						"tree":  "root",
+						"other": "branch",
+						"limb":  "leaf",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"bd", "tree", "limb"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						branchesArg.Name(): []string{"tree", "limb"},
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git branch -d "tree" "limb"`,
+						},
+					},
+				},
+				want: &git{
+					ParentBranches: map[string]string{
+						"abc":   "def",
+						"other": "branch",
 					},
 				},
 			},

@@ -201,10 +201,10 @@ func GitAliasers() sourcerer.Option {
 }
 
 type git struct {
-	MainBranches  map[string]string
-	DefaultBranch string
-	ParentBranch  map[string]string
-	changed       bool
+	MainBranches   map[string]string
+	DefaultBranch  string
+	ParentBranches map[string]string
+	changed        bool
 }
 
 func (g *git) Changed() bool {
@@ -574,10 +574,10 @@ func (g *git) Node() command.Node {
 					flag := ""
 					if newBranchFlag.Get(d) {
 						flag = "-b "
-						if g.ParentBranch == nil {
-							g.ParentBranch = map[string]string{}
+						if g.ParentBranches == nil {
+							g.ParentBranches = map[string]string{}
 						}
-						g.ParentBranch[branchName] = currentBranchArg.Get(d)
+						g.ParentBranches[branchName] = currentBranchArg.Get(d)
 						g.changed = true
 					}
 					return []string{
@@ -600,7 +600,15 @@ func (g *git) Node() command.Node {
 					var branches []string
 					for _, b := range branchesArg.Get(d) {
 						branches = append(branches, fmt.Sprintf("%q", b))
+
+						if g.ParentBranches != nil {
+							if _, ok := g.ParentBranches[b]; ok {
+								delete(g.ParentBranches, b)
+								g.changed = true
+							}
+						}
 					}
+
 					return []string{
 						fmt.Sprintf("git branch %s %s", flag, strings.Join(branches, " ")),
 					}, nil
