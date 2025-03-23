@@ -121,7 +121,6 @@ var (
 		pwd := commander.Getwd.Get(d)
 		for _, f := range absFiles {
 			relPath, err := filepath.Rel(pwd, f)
-			fmt.Println("REL", pwd, f, relPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get relative path: %v", err)
 			}
