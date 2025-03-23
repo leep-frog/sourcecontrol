@@ -2,11 +2,13 @@ package sourcecontrol
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/leep-frog/command/command"
+	"github.com/leep-frog/command/commander"
 	"github.com/leep-frog/command/commandertest"
 	"github.com/leep-frog/command/commandtest"
 	"github.com/leep-frog/command/sourcerer"
@@ -1253,7 +1255,8 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoUrl.Name(): "test-repo",
+						commander.Getwd.Name: filepath.Join("/", "fake", "root"),
+						repoUrl.Name():       "test-repo",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -1271,7 +1274,8 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoUrl.Name(): "test-repo",
+						commander.Getwd.Name: filepath.Join("/", "fake", "root"),
+						repoUrl.Name():       "test-repo",
 						diffArgs.Name(): []string{
 							"this.file",
 							"that/file/txt",
@@ -1293,8 +1297,9 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
-						repoUrl.Name():  "test-repo",
-						mainFlag.Name(): true,
+						commander.Getwd.Name: filepath.Join("/", "fake", "root"),
+						repoUrl.Name():       "test-repo",
+						mainFlag.Name():      true,
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -1312,6 +1317,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
+						commander.Getwd.Name:  filepath.Join("/", "fake", "root"),
 						repoUrl.Name():        "test-repo",
 						prevCommitFlag.Name(): true,
 					}},
@@ -1331,6 +1337,7 @@ func TestExecution(t *testing.T) {
 					}},
 					WantRunContents: []*commandtest.RunContents{repoRunContents()},
 					WantData: &command.Data{Values: map[string]interface{}{
+						commander.Getwd.Name:  filepath.Join("/", "fake", "root"),
 						repoUrl.Name():        "test-repo",
 						whitespaceFlag.Name(): "-w",
 					}},
@@ -1861,6 +1868,7 @@ func TestExecution(t *testing.T) {
 			/* Useful for commenting out tests. */
 		} {
 			t.Run(fmt.Sprintf("[%s] %s", curOS.Name(), test.name), func(t *testing.T) {
+				commandtest.StubGetwd(t, filepath.Join("/", "fake", "root"), nil)
 				commandtest.StubValue(t, &sourcerer.CurrentOS, curOS)
 				if oschk, ok := test.osChecks[curOS.Name()]; ok {
 					if test.etc.WantExecuteData == nil {
@@ -2073,41 +2081,237 @@ func TestAutocompletePorcelain(t *testing.T) {
 
 func TestAutocomplete(t *testing.T) {
 	for _, test := range []struct {
-		name string
-		ctc  *commandtest.CompleteTestCase
+		name     string
+		ctc      *commandtest.CompleteTestCase
+		getwd    string
+		getwdErr error
 	}{
 		{
-			name: "Completions for diff",
+			name:     "Completions for diff fails if getwd error",
+			getwd:    filepath.Join("/", "fake", "root"),
+			getwdErr: fmt.Errorf("wd oops"),
 			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd d ",
 				SkipDataCheck: true,
-				Want: &command.Autocompletion{
-					Suggestions: []string{"abc", "def"},
-				},
-				WantRunContents: []*commandtest.RunContents{{
-					Name: "git",
-					Args: []string{"diff", "--name-only", "--relative"},
-				}},
-				RunResponses: []*commandtest.FakeRun{{
-					Stdout: []string{"abc", "def"},
-				}},
+				WantErr:       fmt.Errorf("failed to get current directory: wd oops"),
 			},
 		},
 		{
-			name: "Completions for diff (case insensitve)",
+			name:  "Completions for diff fails if git root fails",
+			getwd: filepath.Join("/", "fake", "root"),
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd d ",
+				SkipDataCheck: true,
+				WantRunContents: []*commandtest.RunContents{
+					{
+						Name: "git",
+						Args: []string{"rev-parse", "--show-toplevel"},
+					},
+				},
+				RunResponses: []*commandtest.FakeRun{
+					{
+						Err:    fmt.Errorf("oh no"),
+						Stdout: []string{"bloop"},
+						Stderr: []string{"blop"},
+					},
+				},
+				WantErr: fmt.Errorf("failed to get git root: failed to execute shell command: oh no"),
+			},
+		},
+		{
+			name:  "Completions for diff fails if git diff command fails",
+			getwd: filepath.Join("/", "fake", "root"),
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd d ",
+				SkipDataCheck: true,
+				WantRunContents: []*commandtest.RunContents{
+					{
+						Name: "git",
+						Args: []string{"rev-parse", "--show-toplevel"},
+					},
+					{
+						Name: "git",
+						Args: []string{"diff", "--name-only"},
+					},
+				},
+				RunResponses: []*commandtest.FakeRun{
+					{
+						Stdout: []string{filepath.Join("/", "fake", "root")},
+					},
+					{
+						Err:    fmt.Errorf("whoops"),
+						Stdout: []string{"abc", "def"},
+						Stderr: []string{"ghi", "jkl", "mno"},
+					},
+				},
+				WantErr: fmt.Errorf("failed to get diffable files: failed to execute shell command: whoops"),
+			},
+		},
+		{
+			name:  "Completions for diff fails if relative filepath fails",
+			getwd: filepath.Join("/", "fake", "root"),
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd d ",
+				SkipDataCheck: true,
+				WantRunContents: []*commandtest.RunContents{
+					{
+						Name: "git",
+						Args: []string{"rev-parse", "--show-toplevel"},
+					},
+					{
+						Name: "git",
+						Args: []string{"diff", "--name-only"},
+					},
+				},
+				RunResponses: []*commandtest.FakeRun{
+					{
+						Stdout: []string{"not-absolute-path"},
+					},
+					{
+						Stdout: []string{"abc", "def"},
+					},
+				},
+				WantErr: fmt.Errorf("failed to get relative path: Rel: can't make %s relative to %s", filepath.Join("not-absolute-path", "abc"), filepath.Join("/", "fake", "root")),
+			},
+		},
+		{
+			name:  "Completions for diff works when in the same root",
+			getwd: filepath.Join("/", "fake", "root"),
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd d ",
+				SkipDataCheck: true,
+				WantRunContents: []*commandtest.RunContents{
+					{
+						Name: "git",
+						Args: []string{"rev-parse", "--show-toplevel"},
+					},
+					{
+						Name: "git",
+						Args: []string{"diff", "--name-only"},
+					},
+				},
+				RunResponses: []*commandtest.FakeRun{
+					{
+						Stdout: []string{filepath.Join("/", "fake", "root")},
+					},
+					{
+						Stdout: []string{"abc", filepath.Join("def", "ghi")},
+					},
+				},
+				Want: &command.Autocompletion{
+					Suggestions: []string{"abc", filepath.Join("def", "ghi")},
+				},
+			},
+		},
+		{
+			name:  "Completions for diff works when diffs are in the parent directory",
+			getwd: filepath.Join("/", "fake", "root", "some-folder"),
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd d ",
+				SkipDataCheck: true,
+				WantRunContents: []*commandtest.RunContents{
+					{
+						Name: "git",
+						Args: []string{"rev-parse", "--show-toplevel"},
+					},
+					{
+						Name: "git",
+						Args: []string{"diff", "--name-only"},
+					},
+				},
+				RunResponses: []*commandtest.FakeRun{
+					{
+						Stdout: []string{filepath.Join("/", "fake", "root")},
+					},
+					{
+						Stdout: []string{
+							"abc",
+							filepath.Join("def", "ghi"),
+							filepath.Join("some-folder", "123"),
+							filepath.Join("some-folder", "sub-folder", "456"),
+						},
+					},
+				},
+				Want: &command.Autocompletion{
+					Suggestions: []string{
+						filepath.Join("..", "abc"),
+						filepath.Join("..", "def", "ghi"),
+						filepath.Join("123"),
+						filepath.Join("sub-folder", "456"),
+					},
+				},
+			},
+		},
+		{
+			// This wouldn't ever really happen (as we wouldn't be in a git directory
+			// if the git folder is the sub-folder), but figured we can add a test
+			// just to codify what it would technically do in this situation.
+			name: "Completions for diff works when diffs are in sub-directory",
+
+			getwd: filepath.Join("/", "fake"),
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd d ",
+				SkipDataCheck: true,
+				WantRunContents: []*commandtest.RunContents{
+					{
+						Name: "git",
+						Args: []string{"rev-parse", "--show-toplevel"},
+					},
+					{
+						Name: "git",
+						Args: []string{"diff", "--name-only"},
+					},
+				},
+				RunResponses: []*commandtest.FakeRun{
+					{
+						Stdout: []string{filepath.Join("/", "fake", "root")},
+					},
+					{
+						Stdout: []string{
+							"abc",
+							filepath.Join("def", "ghi"),
+							filepath.Join("some-folder", "123"),
+							filepath.Join("some-folder", "sub-folder", "456"),
+						},
+					},
+				},
+				Want: &command.Autocompletion{
+					Suggestions: []string{
+						filepath.Join("root", "abc"),
+						filepath.Join("root", "def", "ghi"),
+						filepath.Join("root", "some-folder", "123"),
+						filepath.Join("root", "some-folder", "sub-folder", "456"),
+					},
+				},
+			},
+		},
+		{
+			name:  "Completions for diff (case insensitive)",
+			getwd: filepath.Join("/", "fake", "root"),
 			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd d A",
 				SkipDataCheck: true,
 				Want: &command.Autocompletion{
 					Suggestions: []string{"abc"},
 				},
-				WantRunContents: []*commandtest.RunContents{{
-					Name: "git",
-					Args: []string{"diff", "--name-only", "--relative"},
-				}},
-				RunResponses: []*commandtest.FakeRun{{
-					Stdout: []string{"abc", "def"},
-				}},
+				WantRunContents: []*commandtest.RunContents{
+					{
+						Name: "git",
+						Args: []string{"rev-parse", "--show-toplevel"},
+					},
+					{
+						Name: "git",
+						Args: []string{"diff", "--name-only"},
+					},
+				},
+				RunResponses: []*commandtest.FakeRun{
+					{
+						Stdout: []string{filepath.Join("/", "fake", "root")},
+					},
+					{
+						Stdout: []string{"abc", "def"},
+					},
+				},
 			},
 		},
 		// Branch completion tests
@@ -2223,8 +2427,12 @@ func TestAutocomplete(t *testing.T) {
 				WantErr: fmt.Errorf("failed to fetch autocomplete suggestions with shell command: failed to execute shell command: oh no"),
 			},
 		},
+		/* Useful for commenting out tests. */
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			if test.getwd != "" {
+				commandtest.StubGetwd(t, test.getwd, test.getwdErr)
+			}
 			g := &git{}
 			test.ctc.Node = g.Node()
 			commandertest.AutocompleteTest(t, test.ctc)

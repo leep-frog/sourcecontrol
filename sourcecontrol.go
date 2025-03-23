@@ -2,6 +2,7 @@ package sourcecontrol
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -73,9 +74,66 @@ var (
 	prevCommitFlag = commander.BoolFlag("commit", 'c', "Whether to diff against the previous commit")
 
 	// The two dots represent [file state in the cache (e.g. added/green), file state not in the cache (red file)]
-	redFileCompleter            = PrefixCompleter[[]string](true, regexp.MustCompile(`^.[^\.]$`))
-	greenFileCompleter          = PrefixCompleter[[]string](false, regexp.MustCompile(`^[^\.].$`))
-	redFileCompleterNoDeletes   = commander.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true, CaseInsensitive: true}, "git", "diff", "--name-only", "--relative")
+	redFileCompleter   = PrefixCompleter[[]string](true, regexp.MustCompile(`^.[^\.]$`))
+	greenFileCompleter = PrefixCompleter[[]string](false, regexp.MustCompile(`^[^\.].$`))
+
+	diffCompleter = commander.CompleterFromFunc(func(ss []string, d *command.Data) (*command.Completion, error) {
+
+		// Get git root
+		gitRootDir := &commander.ShellCommand[string]{
+			CommandName: "git",
+			Args: []string{
+				"rev-parse",
+				"--show-toplevel",
+			},
+			ForwardStdout: false,
+			HideStderr:    true,
+			// TODO: DontRunOnExecute/Usage or field for when it should run
+		}
+		gitRoot, err := gitRootDir.Run(nil, d)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get git root: %v", err)
+		}
+
+		// Get diffable files
+		diffableFiles := &commander.ShellCommand[[]string]{
+			CommandName: "git",
+			Args: []string{
+				"diff",
+				"--name-only",
+			},
+			ForwardStdout: false,
+			HideStderr:    true,
+		}
+		files, err := diffableFiles.Run(nil, d)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get diffable files: %v", err)
+		}
+
+		// Get absolute path for diffable files
+		var absFiles []string
+		for _, f := range files {
+			absFiles = append(absFiles, filepath.Join(gitRoot, f))
+		}
+
+		// Create suggestions
+		var suggestions []string
+		pwd := commander.Getwd.Get(d)
+		for _, f := range absFiles {
+			relPath, err := filepath.Rel(pwd, f)
+			fmt.Println("REL", pwd, f, relPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get relative path: %v", err)
+			}
+			suggestions = append(suggestions, relPath)
+		}
+
+		return &command.Completion{
+			Suggestions:     suggestions,
+			Distinct:        true,
+			CaseInsensitive: true,
+		}, nil
+	})
 	greenFileCompleterNoDeletes = commander.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true, CaseInsensitive: true}, "git", "diff", "--cached", "--name-only", "--relative")
 
 	filesArg         = commander.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, redFileCompleter)
@@ -104,7 +162,7 @@ var (
 	diffArgs = commander.ListArg[string](
 		"FILE", "Files to diff",
 		0, command.UnboundedList,
-		redFileCompleterNoDeletes,
+		diffCompleter,
 	)
 	ucArgs = commander.ListArg[string](
 		"FILE", "Files to un-change",
@@ -135,6 +193,7 @@ func CLI() *git {
 	return &git{}
 }
 
+// TODO: CompleteWrapper (CompleteExtender?) here too
 func branchCompleter(s string, d *command.Data) (*command.Completion, error) {
 	c, err := commander.ShellCommandCompleter[string]("git", "branch", "--list").Complete(s, d)
 	if c == nil || err != nil {
@@ -249,7 +308,7 @@ func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) 
 
 		var suggestions []string
 		has := map[string]bool{}
-		addSuggesteion := func(s string) {
+		addSuggestion := func(s string) {
 			if has[s] {
 				return
 			}
@@ -269,7 +328,7 @@ func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) 
 			if parts[0] == "?" {
 				file := strings.Join(parts[1:], " ")
 				if includeUnknown {
-					addSuggesteion(file)
+					addSuggestion(file)
 				}
 				continue
 			}
@@ -278,7 +337,7 @@ func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) 
 			file := strings.Join(parts[8:], " ")
 			for _, rgx := range prefixCodes {
 				if rgx.MatchString(parts[1]) {
-					addSuggesteion(file)
+					addSuggestion(file)
 					break
 				}
 			}
@@ -647,6 +706,7 @@ func (g *git) Node() command.Node {
 			// Diff
 			"d": commander.SerialNodes(
 				commander.Description("Diff"),
+				commander.Getwd,
 				commander.FlagProcessor(
 					mainFlag,
 					prevCommitFlag,
