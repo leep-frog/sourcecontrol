@@ -1733,7 +1733,7 @@ func TestExecution(t *testing.T) {
 						currentBranchArg.ArgName: "tree-branch",
 						repoUrl.ArgName:          "git@github.com:user/repo.git",
 					}},
-					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expanded=1\n",
+					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expand=1\n",
 				},
 			},
 			{
@@ -1775,7 +1775,7 @@ func TestExecution(t *testing.T) {
 						currentBranchArg.ArgName: "tree-branch",
 						repoUrl.ArgName:          "git@github.com:user/repo.git",
 					}},
-					WantStdout: "https://github.com/user/repo/compare/maine...tree-branch?expanded=1\n",
+					WantStdout: "https://github.com/user/repo/compare/maine...tree-branch?expand=1\n",
 				},
 			},
 			{
@@ -1820,7 +1820,7 @@ func TestExecution(t *testing.T) {
 						currentBranchArg.ArgName: "tree-branch",
 						repoUrl.ArgName:          "git@github.com:user/repo.git",
 					}},
-					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expanded=1\n",
+					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expand=1\n",
 				},
 			},
 			{
@@ -1862,7 +1862,7 @@ func TestExecution(t *testing.T) {
 						currentBranchArg.ArgName: "tree-branch",
 						repoUrl.ArgName:          "https://github.com/user/repo.git",
 					}},
-					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expanded=1\n",
+					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expand=1\n",
 				},
 			},
 			/* Useful for commenting out tests. */

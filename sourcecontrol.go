@@ -637,10 +637,10 @@ func (g *git) Node() command.Node {
 					cb := currentBranchArg.Get(d)
 
 					if pb, ok := g.ParentBranches[cb]; ok {
-						o.Stdoutf("https://github.com/%s/compare/%s...%s?expanded=1\n", orgRepo, pb, cb)
+						o.Stdoutf("https://github.com/%s/compare/%s...%s?expand=1\n", orgRepo, pb, cb)
 						return nil
 					} else if mb, ok := g.MainBranches[url]; ok {
-						o.Stdoutf("https://github.com/%s/compare/%s...%s?expanded=1\n", orgRepo, mb, cb)
+						o.Stdoutf("https://github.com/%s/compare/%s...%s?expand=1\n", orgRepo, mb, cb)
 						return nil
 					} else {
 						return o.Stderrf("Unknown parent branch for branch %s; and no default main branch set\n", cb)
