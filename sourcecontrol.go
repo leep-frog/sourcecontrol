@@ -56,6 +56,7 @@ var (
 		commander.SimpleExecutableProcessor(createSSHAgentCommand),
 	)
 	nvFlag     = commander.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
+	formatFlag = commander.Flag("format", 'f', "Golang format for the branch", commander.Default("%s\n"))
 	pushFlag   = commander.BoolFlag("push", 'p', "Whether or not to push afterwards")
 	messageArg = commander.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
 	branchArg  = commander.Arg(
@@ -435,8 +436,11 @@ func (g *git) Node() command.Node {
 			"current": commander.SerialNodes(
 				commander.Description("Display current branch"),
 				currentBranchArg,
+				commander.FlagProcessor(
+					formatFlag,
+				),
 				commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
-					o.Stdoutln(currentBranchArg.Get(d))
+					o.Stdoutf(formatFlag.Get(d), currentBranchArg.Get(d))
 					return nil
 				}, nil),
 			),

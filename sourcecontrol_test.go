@@ -69,7 +69,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ cp MESSAGE [ MESSAGE ... ] --no-verify|-n`,
 		`┃`,
 		`┃   Display current branch`,
-		`┣━━ current`,
+		`┣━━ current --format|-f FORMAT`,
 		`┃`,
 		`┃   Diff`,
 		`┣━━ d [ FILE ... ] --main|-m --commit|-c --whitespace|-w`,
@@ -146,6 +146,9 @@ func TestExecution(t *testing.T) {
 		`  [c] commit: Whether to diff against the previous commit`,
 		`  [d] diff: Whether or not to diff the current changes against N commits prior`,
 		`  [f] force-delete: force delete the branch`,
+		`  [f] format: Golang format for the branch`,
+		`    Default: %s`,
+		``, // Default is %s\n, so need this newline
 		`  [g] global: Whether or not to change the global setting`,
 		`  [m] main: Whether to diff against main branch or just local diffs`,
 		`  [n] new-branch: Whether or not to checkout a new branch`,
@@ -1900,9 +1903,28 @@ func TestExecution(t *testing.T) {
 						Stdout: []string{"some-branch"},
 					}},
 					WantData: &command.Data{Values: map[string]interface{}{
-						"CURRENT_BRANCH": "some-branch",
+						formatFlag.Name(): "%s\n",
+						"CURRENT_BRANCH":  "some-branch",
 					}},
 					WantStdout: "some-branch\n",
+				},
+			},
+			{
+				name: "prints current branch with custom format",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current", "-f", "hello, %s; goodbye"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						formatFlag.Name(): "hello, %s; goodbye",
+						"CURRENT_BRANCH":  "some-branch",
+					}},
+					WantStdout: "hello, some-branch; goodbye",
 				},
 			},
 			/* Useful for commenting out tests. */
