@@ -1948,6 +1948,172 @@ func TestExecution(t *testing.T) {
 					WantStdout: "hello, some-branch; goodbye",
 				},
 			},
+			// upstream + pr-link tests
+			{
+				name: "upstream + pr-link fails if current branch error",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"up"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stderr: []string{"argh"},
+						Err:    fmt.Errorf("oops"),
+						Stdout: []string{"some-branch"},
+					}},
+					WantStderr: "argh\nfailed to execute shell command: oops\n",
+					WantErr:    fmt.Errorf("failed to execute shell command: oops"),
+				},
+			},
+			{
+				name: "upstream + pr-link fails if repoUrl error",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"up"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+						},
+						{
+							Name: "git",
+							Args: []string{"config", "--get", "remote.origin.url"},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"some-branch"},
+						},
+						{
+							Stdout: []string{"git@github.com:user/some-repo.git"},
+							Stderr: []string{"oh no"},
+							Err:    fmt.Errorf("fudge"),
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "some-branch",
+					}},
+					WantStderr: "oh no\nfailed to execute shell command: fudge\n",
+					WantErr:    fmt.Errorf("failed to execute shell command: fudge"),
+				},
+			},
+			{
+				name: "upstream + pr-link fails if push error",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"up"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+						},
+						{
+							Name: "git",
+							Args: []string{"config", "--get", "remote.origin.url"},
+						},
+						{
+							Name: "git",
+							Args: []string{"push", "--set-upstream", "origin", "some-branch"},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"some-branch"},
+						},
+						{
+							Stdout: []string{"git@github.com:user/some-repo.git"},
+						},
+						{
+							Stdout: []string{"push output"},
+							Stderr: []string{"ugh"},
+							Err:    fmt.Errorf("whoops"),
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "some-branch",
+						repoUrl.ArgName:          "git@github.com:user/some-repo.git",
+					}},
+					WantStderr: "failed to run git push: failed to execute shell command: whoops\n",
+					WantErr:    fmt.Errorf("failed to run git push: failed to execute shell command: whoops"),
+				},
+			},
+			{
+				name: "upstream + pr-link fails if printPRLink fails",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"up"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+						},
+						{
+							Name: "git",
+							Args: []string{"config", "--get", "remote.origin.url"},
+						},
+						{
+							Name: "git",
+							Args: []string{"push", "--set-upstream", "origin", "some-branch"},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"some-branch"},
+						},
+						{
+							Stdout: []string{"git@github.com:user/some-repo.git"},
+						},
+						{
+							Stdout: []string{"push output"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "some-branch",
+						repoUrl.ArgName:          "git@github.com:user/some-repo.git",
+					}},
+					WantStderr: "Unknown parent branch for branch some-branch; and no default main branch set\n",
+					WantErr:    fmt.Errorf("Unknown parent branch for branch some-branch; and no default main branch set"),
+				},
+			},
+			{
+				name: "upstream + pr-link works",
+				g: &git{
+					ParentBranches: map[string]string{
+						"some-branch": "parent-branch",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"up"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+						},
+						{
+							Name: "git",
+							Args: []string{"config", "--get", "remote.origin.url"},
+						},
+						{
+							Name: "git",
+							Args: []string{"push", "--set-upstream", "origin", "some-branch"},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"some-branch"},
+						},
+						{
+							Stdout: []string{"git@github.com:user/some-repo.git"},
+						},
+						{
+							Stdout: []string{"push output"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "some-branch",
+						repoUrl.ArgName:          "git@github.com:user/some-repo.git",
+					}},
+					WantStdout: "https://github.com/user/some-repo/compare/parent-branch...some-branch?expand=1\n",
+				},
+			},
 			/* Useful for commenting out tests. */
 		} {
 			t.Run(fmt.Sprintf("[%s] %s", curOS.Name(), test.name), func(t *testing.T) {
