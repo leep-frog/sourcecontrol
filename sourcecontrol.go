@@ -447,7 +447,6 @@ func (g *git) Node() command.Node {
 
 				// git push upstream
 				&commander.ExecutorProcessor{func(o command.Output, d *command.Data) error {
-					o.Stdoutln("STARTING", currentBranchArg.Get(d))
 					sc := &commander.ShellCommand[string]{
 						CommandName: "git",
 						Args: []string{
@@ -456,13 +455,11 @@ func (g *git) Node() command.Node {
 							"origin",
 							currentBranchArg.Get(d),
 						},
-						EchoCommand: true,
+						HideStderr: true,
 					}
-					o.Stdoutln("RUNNINg")
 					if _, err := sc.Run(o, d); err != nil {
 						return o.Annotatef(err, "failed to run git push")
 					}
-					o.Stdoutln("PRINTING")
 
 					return g.printPRLink(o, d)
 				}},
