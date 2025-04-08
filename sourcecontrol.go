@@ -442,8 +442,8 @@ func (g *git) Node() command.Node {
 			// upstream push with pr link
 			"up": commander.SerialNodes(
 				commander.Description("Push upstream and output PR link"),
-				// currentBranchArg,
-				// repoUrl,
+				currentBranchArg,
+				repoUrl,
 
 				// git push upstream
 				&commander.ExecutorProcessor{func(o command.Output, d *command.Data) error {
