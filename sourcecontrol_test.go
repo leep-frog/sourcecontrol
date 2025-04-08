@@ -68,6 +68,9 @@ func TestExecution(t *testing.T) {
 		`┃   Commit and push`,
 		`┣━━ cp MESSAGE [ MESSAGE ... ] --no-verify|-n`,
 		`┃`,
+		`┃   Display current branch`,
+		`┣━━ current`,
+		`┃`,
 		`┃   Diff`,
 		`┣━━ d [ FILE ... ] --main|-m --commit|-c --whitespace|-w`,
 		`┃`,
@@ -1866,6 +1869,40 @@ func TestExecution(t *testing.T) {
 						repoUrl.ArgName:          "https://github.com/user/repo.git",
 					}},
 					WantStdout: "https://github.com/user/repo/compare/trunk...tree-branch?expand=1\n",
+				},
+			},
+			// Current branch test
+			{
+				name: "fails if current branch has error",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+						Err:    fmt.Errorf("whoops"),
+					}},
+					WantStderr: "failed to execute shell command: whoops\n",
+					WantErr:    fmt.Errorf("failed to execute shell command: whoops"),
+				},
+			},
+			{
+				name: "prints current branch",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						"CURRENT_BRANCH": "some-branch",
+					}},
+					WantStdout: "some-branch\n",
 				},
 			},
 			/* Useful for commenting out tests. */

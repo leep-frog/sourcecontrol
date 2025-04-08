@@ -432,6 +432,14 @@ func (g *git) Node() command.Node {
 				commander.Description("Branch"),
 				commander.SimpleExecutableProcessor("git branch"),
 			),
+			"current": commander.SerialNodes(
+				commander.Description("Display current branch"),
+				currentBranchArg,
+				commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
+					o.Stdoutln(currentBranchArg.Get(d))
+					return nil
+				}, nil),
+			),
 			"l": commander.SerialNodes(
 				commander.Description("Pull"),
 				sshNode,
