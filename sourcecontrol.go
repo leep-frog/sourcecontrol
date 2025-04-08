@@ -466,17 +466,6 @@ func (g *git) Node() command.Node {
 
 					return g.printPRLink(o, d)
 				}},
-				&commander.ShellCommand[string]{
-					CommandName:   "git",
-					Args:          []string{"push", "-u"},
-					ForwardStdout: false,
-				},
-				// Print pr-link
-				&commander.ShellCommand[string]{
-					CommandName:   "g",
-					Args:          []string{"pr-link", "-u"},
-					ForwardStdout: true,
-				},
 			),
 			"p": commander.SerialNodes(
 				commander.Description("Push"),
