@@ -442,9 +442,28 @@ func (g *git) Node() command.Node {
 			// upstream push with pr link
 			"up": commander.SerialNodes(
 				commander.Description("Push upstream and output PR link"),
+				currentBranchArg,
+				repoUrl,
+
 				// git push upstream
+				&commander.ExecutorProcessor{func(o command.Output, d *command.Data) error {
+					sc := &commander.ShellCommand[string]{
+						CommandName: "git",
+						Args: []string{
+							"push",
+							"--set-upstream",
+							"origin",
+							currentBranchArg.Get(d),
+						},
+					}
+					if _, err := sc.Run(o, d); err != nil {
+						return o.Annotatef(err, "failed to run git push")
+					}
+
+					return g.printPRLink(o, d)
+				}},
 				&commander.ShellCommand[string]{
-					CommandName:   "g",
+					CommandName:   "git",
 					Args:          []string{"push", "-u"},
 					ForwardStdout: false,
 				},
@@ -641,27 +660,7 @@ func (g *git) Node() command.Node {
 				currentBranchArg,
 				repoUrl,
 				commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
-					url := repoUrl.Get(d)
-					orgRepo := strings.TrimSuffix(url, ".git")
-					if strings.Contains(url, "git@") {
-						orgRepo = strings.TrimPrefix(orgRepo, "git@github.com:")
-					} else if strings.Contains(url, "https:") {
-						orgRepo = strings.TrimPrefix(orgRepo, "https://github.com/")
-					} else {
-						return o.Stderrf("Unknown git url format: %s\n", url)
-					}
-
-					cb := currentBranchArg.Get(d)
-
-					if pb, ok := g.ParentBranches[cb]; ok {
-						o.Stdoutf("https://github.com/%s/compare/%s...%s?expand=1\n", orgRepo, pb, cb)
-						return nil
-					} else if mb, ok := g.MainBranches[url]; ok {
-						o.Stdoutf("https://github.com/%s/compare/%s...%s?expand=1\n", orgRepo, mb, cb)
-						return nil
-					} else {
-						return o.Stderrf("Unknown parent branch for branch %s; and no default main branch set\n", cb)
-					}
+					return g.printPRLink(o, d)
 				}, nil),
 			),
 			"ch": commander.SerialNodes(
@@ -810,5 +809,29 @@ func (g *git) Node() command.Node {
 		Synonyms: commander.BranchSynonyms(map[string][]string{
 			"l": {"pl"},
 		}),
+	}
+}
+
+func (g *git) printPRLink(o command.Output, d *command.Data) error {
+	url := repoUrl.Get(d)
+	orgRepo := strings.TrimSuffix(url, ".git")
+	if strings.Contains(url, "git@") {
+		orgRepo = strings.TrimPrefix(orgRepo, "git@github.com:")
+	} else if strings.Contains(url, "https:") {
+		orgRepo = strings.TrimPrefix(orgRepo, "https://github.com/")
+	} else {
+		return o.Stderrf("Unknown git url format: %s\n", url)
+	}
+
+	cb := currentBranchArg.Get(d)
+
+	if pb, ok := g.ParentBranches[cb]; ok {
+		o.Stdoutf("https://github.com/%s/compare/%s...%s?expand=1\n", orgRepo, pb, cb)
+		return nil
+	} else if mb, ok := g.MainBranches[url]; ok {
+		o.Stdoutf("https://github.com/%s/compare/%s...%s?expand=1\n", orgRepo, mb, cb)
+		return nil
+	} else {
+		return o.Stderrf("Unknown parent branch for branch %s; and no default main branch set\n", cb)
 	}
 }
