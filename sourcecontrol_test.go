@@ -69,7 +69,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ cp MESSAGE [ MESSAGE ... ] --no-verify|-n`,
 		`┃`,
 		`┃   Display current branch`,
-		`┣━━ current --format|-f FORMAT`,
+		`┣━━ current --format|-f FORMAT --ignore-no-branch|-i`,
 		`┃`,
 		`┃   Diff`,
 		`┣━━ d [ FILE ... ] --main|-m --commit|-c --whitespace|-w`,
@@ -150,6 +150,7 @@ func TestExecution(t *testing.T) {
 		`    Default: %s`,
 		``, // Default is %s\n, so need this newline
 		`  [g] global: Whether or not to change the global setting`,
+		`  [i] ignore-no-branch: Ignore any errors in the git branch command`,
 		`  [m] main: Whether to diff against main branch or just local diffs`,
 		`  [n] new-branch: Whether or not to checkout a new branch`,
 		`  [n] no-verify: Whether or not to run pre-commit checks`,
@@ -1887,8 +1888,30 @@ func TestExecution(t *testing.T) {
 						Stdout: []string{"some-branch"},
 						Err:    fmt.Errorf("whoops"),
 					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						formatFlag.Name(): "%s\n",
+					}},
 					WantStderr: "failed to execute shell command: whoops\n",
 					WantErr:    fmt.Errorf("failed to execute shell command: whoops"),
+				},
+			},
+			{
+				name: "ignores failure if ignore flag provided",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current", "-i"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+						Stderr: []string{"oopsie"},
+						Err:    fmt.Errorf("whoops"),
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						formatFlag.Name():     "%s\n",
+						ignoreNoBranch.Name(): true,
+					}},
 				},
 			},
 			{
@@ -1904,7 +1927,6 @@ func TestExecution(t *testing.T) {
 					}},
 					WantData: &command.Data{Values: map[string]interface{}{
 						formatFlag.Name(): "%s\n",
-						"CURRENT_BRANCH":  "some-branch",
 					}},
 					WantStdout: "some-branch\n",
 				},
@@ -1922,7 +1944,6 @@ func TestExecution(t *testing.T) {
 					}},
 					WantData: &command.Data{Values: map[string]interface{}{
 						formatFlag.Name(): "hello, %s; goodbye",
-						"CURRENT_BRANCH":  "some-branch",
 					}},
 					WantStdout: "hello, some-branch; goodbye",
 				},

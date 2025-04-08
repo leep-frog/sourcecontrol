@@ -55,11 +55,12 @@ var (
 		commander.FunctionWrap(),
 		commander.SimpleExecutableProcessor(createSSHAgentCommand),
 	)
-	nvFlag     = commander.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
-	formatFlag = commander.Flag("format", 'f', "Golang format for the branch", commander.Default("%s\n"))
-	pushFlag   = commander.BoolFlag("push", 'p', "Whether or not to push afterwards")
-	messageArg = commander.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
-	branchArg  = commander.Arg(
+	nvFlag         = commander.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
+	formatFlag     = commander.Flag("format", 'f', "Golang format for the branch", commander.Default("%s\n"))
+	ignoreNoBranch = commander.BoolFlag("ignore-no-branch", 'i', "Ignore any errors in the git branch command")
+	pushFlag       = commander.BoolFlag("push", 'p', "Whether or not to push afterwards")
+	messageArg     = commander.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
+	branchArg      = commander.Arg(
 		"BRANCH",
 		"Branch",
 		BranchCompleter(),
@@ -177,7 +178,11 @@ var (
 		allFileCompleter,
 	)
 	pushUpstreamFlag = commander.BoolFlag("upstream", 'u', "If set, push branch to upstream")
-	currentBranchArg = &commander.ShellCommand[string]{
+	currentBranchArg = createCurrentBranchArg(false)
+)
+
+func createCurrentBranchArg(hideStderr bool) *commander.ShellCommand[string] {
+	return &commander.ShellCommand[string]{
 		ArgName:     "CURRENT_BRANCH",
 		CommandName: "git",
 		Args: []string{
@@ -186,8 +191,9 @@ var (
 			"HEAD",
 		},
 		DontRunOnComplete: true,
+		HideStderr:        hideStderr,
 	}
-)
+}
 
 func CLI() *git {
 	return &git{}
@@ -435,12 +441,20 @@ func (g *git) Node() command.Node {
 			),
 			"current": commander.SerialNodes(
 				commander.Description("Display current branch"),
-				currentBranchArg,
 				commander.FlagProcessor(
 					formatFlag,
+					ignoreNoBranch,
 				),
 				commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
-					o.Stdoutf(formatFlag.Get(d), currentBranchArg.Get(d))
+					cba := createCurrentBranchArg(true)
+					branch, err := cba.Run(o, d)
+					if err != nil {
+						if ignoreNoBranch.Get(d) {
+							return nil
+						}
+						return o.Err(err)
+					}
+					o.Stdoutf(formatFlag.Get(d), branch)
 					return nil
 				}, nil),
 			),
