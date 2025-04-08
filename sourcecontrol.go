@@ -455,6 +455,7 @@ func (g *git) Node() command.Node {
 							"origin",
 							currentBranchArg.Get(d),
 						},
+						EchoCommand: true,
 					}
 					if _, err := sc.Run(o, d); err != nil {
 						return o.Annotatef(err, "failed to run git push")
