@@ -228,7 +228,8 @@ func BranchesCompleter() commander.Completer[[]string] {
 
 func GitAliasers() sourcerer.Option {
 	return sourcerer.Aliasers(map[string][]string{
-		"gp": {"g", "p"},
+		"gp":  {"g", "p"},
+		"gup": {"g", "up"},
 		// Don't include 'gl' since that is an alias of goleep
 		"gpl":  {"g", "pl"},
 		"gs":   {"g", "s"},
@@ -437,6 +438,22 @@ func (g *git) Node() command.Node {
 				commander.SimpleExecutableProcessor(
 					"git pull",
 				),
+			),
+			// upstream push with pr link
+			"up": commander.SerialNodes(
+				commander.Description("Push upstream and output PR link"),
+				// git push upstream
+				&commander.ShellCommand[string]{
+					CommandName:   "g",
+					Args:          []string{"push", "-u"},
+					ForwardStdout: false,
+				},
+				// Print pr-link
+				&commander.ShellCommand[string]{
+					CommandName:   "g",
+					Args:          []string{"pr-link", "-u"},
+					ForwardStdout: true,
+				},
 			),
 			"p": commander.SerialNodes(
 				commander.Description("Push"),
