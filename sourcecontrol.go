@@ -442,11 +442,12 @@ func (g *git) Node() command.Node {
 			// upstream push with pr link
 			"up": commander.SerialNodes(
 				commander.Description("Push upstream and output PR link"),
-				currentBranchArg,
-				repoUrl,
+				// currentBranchArg,
+				// repoUrl,
 
 				// git push upstream
 				&commander.ExecutorProcessor{func(o command.Output, d *command.Data) error {
+					o.Stdoutln("STARTING", currentBranchArg.Get(d))
 					sc := &commander.ShellCommand[string]{
 						CommandName: "git",
 						Args: []string{
@@ -457,9 +458,11 @@ func (g *git) Node() command.Node {
 						},
 						EchoCommand: true,
 					}
+					o.Stdoutln("RUNNINg")
 					if _, err := sc.Run(o, d); err != nil {
 						return o.Annotatef(err, "failed to run git push")
 					}
+					o.Stdoutln("PRINTING")
 
 					return g.printPRLink(o, d)
 				}},
