@@ -69,7 +69,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ cp MESSAGE [ MESSAGE ... ] --no-verify|-n`,
 		`┃`,
 		`┃   Display current branch`,
-		`┣━━ current --format|-f FORMAT --ignore-no-branch|-i`,
+		`┣━━ current --format|-f FORMAT --ignore-no-branch|-i --parent-format|-F PARENT_FORMAT`,
 		`┃`,
 		`┃   Diff`,
 		`┣━━ d [ FILE ... ] --main|-m --commit|-c --whitespace|-w`,
@@ -154,6 +154,7 @@ func TestExecution(t *testing.T) {
 		`  [m] main: Whether to diff against main branch or just local diffs`,
 		`  [n] new-branch: Whether or not to checkout a new branch`,
 		`  [n] no-verify: Whether or not to run pre-commit checks`,
+		`  [F] parent-format: Golang format for the the parent branches`,
 		`  [p] push: Whether or not to push afterwards`,
 		`  [u] upstream: If set, push branch to upstream`,
 		`  [w] whitespace: Whether or not to show whitespace in diffs`,
@@ -1946,6 +1947,124 @@ func TestExecution(t *testing.T) {
 						formatFlag.Name(): "hello, %s; goodbye",
 					}},
 					WantStdout: "hello, some-branch; goodbye",
+				},
+			},
+			{
+				name: "current branch with parent format but no parent",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current", "-F", "%s --> "},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						formatFlag.Name():       "%s\n",
+						parentFormatFlag.Name(): "%s --> ",
+					}},
+					WantStdout: "some-branch\n",
+				},
+			},
+			{
+				name: "current branch with parent format works",
+				g: &git{
+					ParentBranches: map[string]string{
+						"some-branch": "dad",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current", "-F", "%s --> "},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						formatFlag.Name():       "%s\n",
+						parentFormatFlag.Name(): "%s --> ",
+					}},
+					WantStdout: "dad --> some-branch\n",
+				},
+			},
+			{
+				name: "current branch with parent format works with multiple parents",
+				g: &git{
+					ParentBranches: map[string]string{
+						"some-branch": "dad",
+						"dad":         "granddad",
+						"granddad":    "great granddad",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current", "-F", "%s --> "},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						formatFlag.Name():       "%s\n",
+						parentFormatFlag.Name(): "%s --> ",
+					}},
+					WantStdout: "great granddad --> granddad --> dad --> some-branch\n",
+				},
+			},
+			{
+				name: "current branch fails if cycle with base branch",
+				g: &git{
+					ParentBranches: map[string]string{
+						"some-branch":    "other-branch",
+						"other-branch":   "another-branch",
+						"another-branch": "some-branch",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current", "-F", "%s --> "},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						formatFlag.Name():       "%s\n",
+						parentFormatFlag.Name(): "%s --> ",
+					}},
+					WantStderr: "cycle detected in parent branches\n",
+					WantErr:    fmt.Errorf("cycle detected in parent branches"),
+				},
+			},
+			{
+				name: "current branch fails if cycle with parent branches",
+				g: &git{
+					ParentBranches: map[string]string{
+						"some-branch":    "other-branch",
+						"other-branch":   "another-branch",
+						"another-branch": "other-branch",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current", "-F", "%s --> "},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						formatFlag.Name():       "%s\n",
+						parentFormatFlag.Name(): "%s --> ",
+					}},
+					WantStderr: "cycle detected in parent branches\n",
+					WantErr:    fmt.Errorf("cycle detected in parent branches"),
 				},
 			},
 			// upstream + pr-link tests

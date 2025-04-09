@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/leep-frog/command/command"
 	"github.com/leep-frog/command/commander"
 	"github.com/leep-frog/command/sourcerer"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 const DefaultDefaultBranch = "main"
@@ -55,12 +55,13 @@ var (
 		commander.FunctionWrap(),
 		commander.SimpleExecutableProcessor(createSSHAgentCommand),
 	)
-	nvFlag         = commander.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
-	formatFlag     = commander.Flag("format", 'f', "Golang format for the branch", commander.Default("%s\n"))
-	ignoreNoBranch = commander.BoolFlag("ignore-no-branch", 'i', "Ignore any errors in the git branch command")
-	pushFlag       = commander.BoolFlag("push", 'p', "Whether or not to push afterwards")
-	messageArg     = commander.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
-	branchArg      = commander.Arg(
+	nvFlag           = commander.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
+	formatFlag       = commander.Flag("format", 'f', "Golang format for the branch", commander.Default("%s\n"))
+	parentFormatFlag = commander.Flag[string]("parent-format", 'F', "Golang format for the the parent branches")
+	ignoreNoBranch   = commander.BoolFlag("ignore-no-branch", 'i', "Ignore any errors in the git branch command")
+	pushFlag         = commander.BoolFlag("push", 'p', "Whether or not to push afterwards")
+	messageArg       = commander.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
+	branchArg        = commander.Arg(
 		"BRANCH",
 		"Branch",
 		BranchCompleter(),
@@ -444,6 +445,7 @@ func (g *git) Node() command.Node {
 				commander.FlagProcessor(
 					formatFlag,
 					ignoreNoBranch,
+					parentFormatFlag,
 				),
 				commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
 					cba := createCurrentBranchArg(true)
@@ -453,6 +455,24 @@ func (g *git) Node() command.Node {
 							return nil
 						}
 						return o.Err(err)
+					}
+
+					if parentFormatFlag.Provided(d) {
+						contains := map[string]bool{
+							branch: true,
+						}
+						var branchPath []string
+						for parent, ok := g.ParentBranches[branch]; ok; parent, ok = g.ParentBranches[parent] {
+							if contains[parent] {
+								return o.Stderrln("cycle detected in parent branches")
+							}
+							contains[parent] = true
+							branchPath = append(branchPath, parent)
+						}
+						slices.Reverse(branchPath)
+						for _, parent := range branchPath {
+							o.Stdoutf(parentFormatFlag.Get(d), parent)
+						}
 					}
 					o.Stdoutf(formatFlag.Get(d), branch)
 					return nil
