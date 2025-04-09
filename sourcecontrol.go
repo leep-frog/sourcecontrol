@@ -58,6 +58,8 @@ var (
 	nvFlag           = commander.BoolValueFlag("no-verify", 'n', "Whether or not to run pre-commit checks", "--no-verify ")
 	formatFlag       = commander.Flag("format", 'f', "Golang format for the branch", commander.Default("%s\n"))
 	parentFormatFlag = commander.Flag[string]("parent-format", 'F', "Golang format for the the parent branches")
+	prefixFlag       = commander.Flag[string]("prefix", 'p', "Prefix to include if a branch is detected")
+	suffixFlag       = commander.Flag[string]("suffix", 's', "Suffix to include if a branch is detected")
 	ignoreNoBranch   = commander.BoolFlag("ignore-no-branch", 'i', "Ignore any errors in the git branch command")
 	pushFlag         = commander.BoolFlag("push", 'p', "Whether or not to push afterwards")
 	messageArg       = commander.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
@@ -446,6 +448,8 @@ func (g *git) Node() command.Node {
 					formatFlag,
 					ignoreNoBranch,
 					parentFormatFlag,
+					prefixFlag,
+					suffixFlag,
 				),
 				commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
 					cba := createCurrentBranchArg(true)
@@ -455,6 +459,10 @@ func (g *git) Node() command.Node {
 							return nil
 						}
 						return o.Err(err)
+					}
+
+					output := []string{
+						prefixFlag.GetOrDefault(d, ""),
 					}
 
 					if parentFormatFlag.Provided(d) {
@@ -471,10 +479,11 @@ func (g *git) Node() command.Node {
 						}
 						slices.Reverse(branchPath)
 						for _, parent := range branchPath {
-							o.Stdoutf(parentFormatFlag.Get(d), parent)
+							output = append(output, fmt.Sprintf(parentFormatFlag.Get(d), parent))
 						}
 					}
-					o.Stdoutf(formatFlag.Get(d), branch)
+					output = append(output, fmt.Sprintf(formatFlag.Get(d), branch), suffixFlag.GetOrDefault(d, ""))
+					o.Stdout(strings.Join(output, ""))
 					return nil
 				}, nil),
 			),

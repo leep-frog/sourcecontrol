@@ -69,7 +69,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ cp MESSAGE [ MESSAGE ... ] --no-verify|-n`,
 		`┃`,
 		`┃   Display current branch`,
-		`┣━━ current --format|-f FORMAT --ignore-no-branch|-i --parent-format|-F PARENT_FORMAT`,
+		`┣━━ current --format|-f FORMAT --ignore-no-branch|-i --parent-format|-F PARENT_FORMAT --prefix|-p PREFIX --suffix|-s SUFFIX`,
 		`┃`,
 		`┃   Diff`,
 		`┣━━ d [ FILE ... ] --main|-m --commit|-c --whitespace|-w`,
@@ -155,7 +155,9 @@ func TestExecution(t *testing.T) {
 		`  [n] new-branch: Whether or not to checkout a new branch`,
 		`  [n] no-verify: Whether or not to run pre-commit checks`,
 		`  [F] parent-format: Golang format for the the parent branches`,
+		`  [p] prefix: Prefix to include if a branch is detected`,
 		`  [p] push: Whether or not to push afterwards`,
+		`  [s] suffix: Suffix to include if a branch is detected`,
 		`  [u] upstream: If set, push branch to upstream`,
 		`  [w] whitespace: Whether or not to show whitespace in diffs`,
 	}, "\n")
@@ -2013,6 +2015,33 @@ func TestExecution(t *testing.T) {
 						parentFormatFlag.Name(): "%s --> ",
 					}},
 					WantStdout: "great granddad --> granddad --> dad --> some-branch\n",
+				},
+			},
+			{
+				name: "current branch works with prefix and suffix",
+				g: &git{
+					ParentBranches: map[string]string{
+						"some-branch": "dad",
+						"dad":         "granddad",
+						"granddad":    "great granddad",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"current", "-F", "%s --> ", "-p", "((", "-s", "]]"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{"rev-parse", "--abbrev-ref", "HEAD"},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"some-branch"},
+					}},
+					WantData: &command.Data{Values: map[string]interface{}{
+						formatFlag.Name():       "%s\n",
+						parentFormatFlag.Name(): "%s --> ",
+						prefixFlag.Name():       "((",
+						suffixFlag.Name():       "]]",
+					}},
+					WantStdout: "((great granddad --> granddad --> dad --> some-branch\n]]",
 				},
 			},
 			{
