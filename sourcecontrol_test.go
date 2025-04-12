@@ -110,6 +110,9 @@ func TestExecution(t *testing.T) {
 		`┃   ┃   Continue`,
 		`┃   ┗━━ c`,
 		`┃`,
+		`┃   Remove`,
+		`┣━━ rm FILES [ FILES ... ]`,
+		`┃`,
 		`┃   Status`,
 		`┣━━ s [ FILES ... ]`,
 		`┃`,
@@ -1185,7 +1188,7 @@ func TestExecution(t *testing.T) {
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"s", "file.one", "some/where/file.2"},
 					WantData: &command.Data{Values: map[string]interface{}{
-						filesArg.Name(): []string{
+						statusFilesArg.Name(): []string{
 							"file.one",
 							"some/where/file.2",
 						},
@@ -1214,7 +1217,7 @@ func TestExecution(t *testing.T) {
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"a", "file.one", "some/where/file.2"},
 					WantData: &command.Data{Values: map[string]interface{}{
-						filesArg.Name(): []string{
+						addFilesArg.Name(): []string{
 							"file.one",
 							"some/where/file.2",
 						},
@@ -1245,7 +1248,7 @@ func TestExecution(t *testing.T) {
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"a", "file.one", "some/where/file.2", "--whitespace"},
 					WantData: &command.Data{Values: map[string]interface{}{
-						filesArg.Name(): []string{
+						addFilesArg.Name(): []string{
 							"file.one",
 							"some/where/file.2",
 						},
@@ -1256,6 +1259,52 @@ func TestExecution(t *testing.T) {
 							`git add file.one some/where/file.2`,
 						},
 					},
+				},
+			},
+			// Remove
+			{
+				name: "rm with no args fails",
+				etc: &commandtest.ExecuteTestCase{
+					Args:       []string{"rm"},
+					WantStderr: "Argument \"FILES\" requires at least 1 argument, got 0\n",
+					WantErr:    fmt.Errorf("Argument \"FILES\" requires at least 1 argument, got 0"),
+				},
+			},
+			{
+				name: "rm with args",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"rm", "some-file.txt"},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"rm some-file.txt",
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						rmFilesArg.Name(): []string{
+							"some-file.txt",
+						},
+					}},
+				},
+			},
+			{
+				name: "rm with -rf flag",
+				etc: &commandtest.ExecuteTestCase{
+					// Fine with not making specific flags for -rf because would be
+					// different in windows so adding only adds work for us with little
+					// (no?) actual benefit to usage
+					Args: []string{"rm", "some-file.txt", "-rf", "other-file.go"},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							"rm some-file.txt -rf other-file.go",
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						rmFilesArg.Name(): []string{
+							"some-file.txt",
+							"-rf",
+							"other-file.go",
+						},
+					}},
 				},
 			},
 			// Diff
@@ -2396,6 +2445,22 @@ func TestAutocompletePorcelain(t *testing.T) {
 			},
 			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd a ",
+				SkipDataCheck: true,
+			},
+		},
+		{
+			name: "Completions for rm",
+			wantFiles: []*gitStatusFile{
+				modifiedFile,
+				modifiedCachedModifiedFile,
+				deletedFile,
+				deletedCachedCreatedFile,
+				createdFile,
+				createdCachedModifiedFile,
+				createdCachedDeletedFile,
+			},
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd rm ",
 				SkipDataCheck: true,
 			},
 		},

@@ -140,7 +140,9 @@ var (
 	})
 	greenFileCompleterNoDeletes = commander.ShellCommandCompleterWithOpts[[]string](&command.Completion{Distinct: true, CaseInsensitive: true}, "git", "diff", "--cached", "--name-only", "--relative")
 
-	filesArg         = commander.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, redFileCompleter)
+	addFileCompleter = redFileCompleter
+	addFilesArg      = commander.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, addFileCompleter)
+	rmFilesArg       = commander.ListArg[string]("FILES", "Files to remove", 1, command.UnboundedList, addFileCompleter)
 	allFileCompleter = PrefixCompleter[[]string](true, regexp.MustCompile(".*"))
 	statusFilesArg   = commander.ListArg[string]("FILES", "Files to add", 0, command.UnboundedList, allFileCompleter)
 	repoUrl          = &commander.ShellCommand[string]{
@@ -267,6 +269,7 @@ func GitAliasers() sourcerer.Option {
 		"gop":  {"g", "op"},
 		"gush": {"g", "ush"},
 		"gl":   {"g", "pr-link"},
+		"grm":  {"g", "rm"},
 	})
 }
 
@@ -825,13 +828,23 @@ func (g *git) Node() command.Node {
 					noopWhitespaceFlag,
 				),
 				commander.Description("Add"),
-				filesArg,
+				addFilesArg,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					fs := filesArg.Get(d)
+					fs := addFilesArg.Get(d)
 					if len(fs) == 0 {
 						return []string{"git add ."}, nil
 					}
 					return []string{fmt.Sprintf("git add %s", strings.Join(fs, " "))}, nil
+				}),
+			),
+
+			// Remove
+			"rm": commander.SerialNodes(
+				commander.Description("Remove"),
+				rmFilesArg,
+				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+					fs := rmFilesArg.Get(d)
+					return []string{fmt.Sprintf("rm %s", strings.Join(fs, " "))}, nil
 				}),
 			),
 
