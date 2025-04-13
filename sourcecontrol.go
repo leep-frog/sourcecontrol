@@ -82,6 +82,8 @@ var (
 	redFileCompleter   = PrefixCompleter[[]string](true, regexp.MustCompile(`^.[^\.]$`))
 	greenFileCompleter = PrefixCompleter[[]string](false, regexp.MustCompile(`^[^\.].$`))
 
+	addFlag = commander.BoolFlag("add", 'a', "If set, then files will be added")
+
 	diffCompleter = commander.CompleterFromFunc(func(ss []string, d *command.Data) (*command.Completion, error) {
 
 		// Get git root
@@ -774,10 +776,16 @@ func (g *git) Node() command.Node {
 					mainFlag,
 					prevCommitFlag,
 					whitespaceFlag,
+					addFlag,
 				),
 				diffArgs,
 				repoUrl,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+
+					if addFlag.Get(d) {
+						return g.add(diffArgs.Get(d)), nil
+					}
+
 					branch := "--"
 					if mainFlag.Get(d) {
 						branch = g.GetDefaultBranch(d)
@@ -831,10 +839,7 @@ func (g *git) Node() command.Node {
 				addFilesArg,
 				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 					fs := addFilesArg.Get(d)
-					if len(fs) == 0 {
-						return []string{"git add ."}, nil
-					}
-					return []string{fmt.Sprintf("git add %s", strings.Join(fs, " "))}, nil
+					return g.add(fs), nil
 				}),
 			),
 
@@ -892,4 +897,11 @@ func (g *git) printPRLink(o command.Output, d *command.Data) error {
 	} else {
 		return o.Stderrf("Unknown parent branch for branch %s; and no default main branch set\n", cb)
 	}
+}
+
+func (g *git) add(files []string) []string {
+	if len(files) == 0 {
+		return []string{"git add ."}
+	}
+	return []string{fmt.Sprintf("git add %s", strings.Join(files, " "))}
 }

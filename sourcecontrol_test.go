@@ -72,7 +72,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ current --format|-f FORMAT --ignore-no-branch|-i --parent-format|-F PARENT_FORMAT --prefix|-p PREFIX --suffix|-s SUFFIX`,
 		`┃`,
 		`┃   Diff`,
-		`┣━━ d [ FILE ... ] --main|-m --commit|-c --whitespace|-w`,
+		`┣━━ d [ FILE ... ] --main|-m --commit|-c --whitespace|-w --add|-a`,
 		`┃`,
 		`┃   Git fetch`,
 		`┣━━ f`,
@@ -146,6 +146,7 @@ func TestExecution(t *testing.T) {
 		"  STASH_ARGS: Args to pass to `git stash push/pop`",
 		``,
 		`Flags:`,
+		`  [a] add: If set, then files will be added`,
 		`  [c] commit: Whether to diff against the previous commit`,
 		`  [d] diff: Whether or not to diff the current changes against N commits prior`,
 		`  [f] force-delete: force delete the branch`,
@@ -1406,6 +1407,76 @@ func TestExecution(t *testing.T) {
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
 							`git diff -w -- `,
+						},
+					},
+				},
+			},
+			{
+				name: "diff add with no args",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"d", "-a"},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"test-repo"},
+					}},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
+					WantData: &command.Data{Values: map[string]interface{}{
+						commander.Getwd.Name: filepath.Join("/", "fake", "root"),
+						repoUrl.Name():       "test-repo",
+						addFlag.Name():       true,
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git add .`,
+						},
+					},
+				},
+			},
+			{
+				name: "diff add with args",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"d", "this.file", "that/file/txt", "-a"},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"test-repo"},
+					}},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
+					WantData: &command.Data{Values: map[string]interface{}{
+						commander.Getwd.Name: filepath.Join("/", "fake", "root"),
+						repoUrl.Name():       "test-repo",
+						diffArgs.Name(): []string{
+							"this.file",
+							"that/file/txt",
+						},
+						addFlag.Name(): true,
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git add this.file that/file/txt`,
+						},
+					},
+				},
+			},
+			{
+				name: "diff add with other flags ignores other flags",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"d", "this.file", "that/file/txt", "-a", "--main", "-w"},
+					RunResponses: []*commandtest.FakeRun{{
+						Stdout: []string{"test-repo"},
+					}},
+					WantRunContents: []*commandtest.RunContents{repoRunContents()},
+					WantData: &command.Data{Values: map[string]interface{}{
+						commander.Getwd.Name: filepath.Join("/", "fake", "root"),
+						repoUrl.Name():       "test-repo",
+						diffArgs.Name(): []string{
+							"this.file",
+							"that/file/txt",
+						},
+						addFlag.Name():        true,
+						mainFlag.Name():       true,
+						whitespaceFlag.Name(): "-w",
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git add this.file that/file/txt`,
 						},
 					},
 				},
