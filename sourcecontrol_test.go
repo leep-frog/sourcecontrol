@@ -30,10 +30,12 @@ func repoRunContents() *commandtest.RunContents {
 func TestExecution(t *testing.T) {
 	type osCheck struct {
 		wantExecutable []string
+		wantStdout     []string
 	}
 
 	u := strings.Join([]string{
-		`┓`,
+		`┳ --dry-run|-y`,
+		`┃`,
 		`┃   Add`,
 		`┣━━ a [ FILES ... ]`,
 		`┃`,
@@ -149,6 +151,7 @@ func TestExecution(t *testing.T) {
 		`  [a] add: If set, then files will be added`,
 		`  [c] commit: Whether to diff against the previous commit`,
 		`  [d] diff: Whether or not to diff the current changes against N commits prior`,
+		`  [y] dry-run: Dry-run mode`,
 		`  [f] force-delete: force delete the branch`,
 		`  [f] format: Golang format for the branch`,
 		`    Default: %s`,
@@ -2382,6 +2385,63 @@ func TestExecution(t *testing.T) {
 					WantStdout: "https://github.com/user/some-repo/compare/parent-branch...some-branch?expand=1\n",
 				},
 			},
+			// DryRun tests
+			{
+				name: "dry run - git log",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"lg", "-y"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						dryRunFlag.Name(): true,
+						gitLogArg.Name():  1,
+					}},
+					WantStdout: strings.Join([]string{
+						"# Dry Run Summary",
+						"# Number of executor functions: 0",
+						"# Shell executables:",
+						"git log -n 1",
+						"",
+					}, "\n"),
+				},
+			},
+			{
+				name: "dry run - git commit",
+				osChecks: map[string]*osCheck{
+					"windows": {
+						wantStdout: []string{
+							"# Dry Run Summary",
+							"# Number of executor functions: 0",
+							"# Shell executables:",
+							"",
+							`git commit -m "hello there"`,
+							`if (!$?) { throw "Command failed: git commit -m 'hello there'" }`,
+							`git push`,
+							`if (!$?) { throw "Command failed: git push" }`,
+							`echo Success!`,
+							`if (!$?) { throw "Command failed: echo Success!" }`,
+							"",
+						},
+					},
+					"linux": {
+						wantStdout: []string{
+							"# Dry Run Summary",
+							"# Number of executor functions: 0",
+							"# Shell executables:",
+							"",
+							`git commit -m "hello there" && git push && echo Success!`,
+							"",
+						},
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"-y", "c", "hello", "there", "-p"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						dryRunFlag.Name(): true,
+						messageArg.Name(): []string{"hello", "there"},
+						pushFlag.Name():   true,
+					}},
+					WantExecuteData: &command.ExecuteData{FunctionWrap: true},
+				},
+			},
 			/* Useful for commenting out tests. */
 		} {
 			t.Run(fmt.Sprintf("[%s] %s", curOS.Name(), test.name), func(t *testing.T) {
@@ -2392,6 +2452,9 @@ func TestExecution(t *testing.T) {
 						test.etc.WantExecuteData = &command.ExecuteData{}
 					}
 					test.etc.WantExecuteData.Executable = oschk.wantExecutable
+					if test.etc.WantStdout == "" {
+						test.etc.WantStdout = strings.Join(oschk.wantStdout, "\n")
+					}
 				}
 
 				if test.g == nil {

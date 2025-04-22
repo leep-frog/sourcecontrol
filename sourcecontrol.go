@@ -51,7 +51,8 @@ func wCmd(s string) string {
 }
 
 var (
-	sshNode = commander.SerialNodes(
+	dryRunFlag = commander.BoolFlag("dry-run", 'y', "Dry-run mode")
+	sshNode    = commander.SerialNodes(
 		commander.FunctionWrap(),
 		commander.SimpleExecutableProcessor(createSSHAgentCommand),
 	)
@@ -366,513 +367,516 @@ func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) 
 }
 
 func (g *git) Node() command.Node {
-	return &commander.BranchNode{
-		Branches: map[string]command.Node{
-			// Configs
-			"cfg": commander.SerialNodes(
-				commander.Description("Config settings"),
-				&commander.BranchNode{
-					Branches: map[string]command.Node{
-						"main": &commander.BranchNode{
-							Branches: map[string]command.Node{
-								"show": commander.SerialNodes(
-									&commander.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
-										if len(g.DefaultBranch) == 0 {
-											o.Stdoutln("No global default branch set; using", DefaultDefaultBranch)
-										} else {
-											o.Stdoutln("Global default branch:", g.DefaultBranch)
-										}
+	return commander.DryRunWrap(
+		dryRunFlag,
+		&commander.BranchNode{
+			Branches: map[string]command.Node{
+				// Configs
+				"cfg": commander.SerialNodes(
+					commander.Description("Config settings"),
+					&commander.BranchNode{
+						Branches: map[string]command.Node{
+							"main": &commander.BranchNode{
+								Branches: map[string]command.Node{
+									"show": commander.SerialNodes(
+										&commander.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
+											if len(g.DefaultBranch) == 0 {
+												o.Stdoutln("No global default branch set; using", DefaultDefaultBranch)
+											} else {
+												o.Stdoutln("Global default branch:", g.DefaultBranch)
+											}
 
-										keys := maps.Keys(g.MainBranches)
-										slices.Sort(keys)
-										for _, k := range keys {
-											o.Stdoutf("%s: %s\n", k, g.MainBranches[k])
-										}
-										return nil
-									}},
-								),
-								"set": commander.SerialNodes(
-									commander.FlagProcessor(globalConfig),
-									repoUrl,
-									defRepoArg,
-									&commander.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
-										g.changed = true
-
-										if globalConfig.Get(d) {
-											g.DefaultBranch = defRepoArg.Get(d)
-											o.Stdoutln("Setting global default branch to", defRepoArg.Get(d))
+											keys := maps.Keys(g.MainBranches)
+											slices.Sort(keys)
+											for _, k := range keys {
+												o.Stdoutf("%s: %s\n", k, g.MainBranches[k])
+											}
 											return nil
-										}
-
-										if g.MainBranches == nil {
-											g.MainBranches = map[string]string{}
-										}
-										g.MainBranches[repoUrl.Get(d)] = defRepoArg.Get(d)
-										o.Stdoutf("Setting default branch for %s to %s\n", repoUrl.Get(d), defRepoArg.Get(d))
-										return nil
-									}},
-								),
-								"unset": commander.SerialNodes(
-									commander.FlagProcessor(globalConfig),
-									repoUrl,
-									&commander.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
-										if globalConfig.Get(d) {
-											g.DefaultBranch = ""
+										}},
+									),
+									"set": commander.SerialNodes(
+										commander.FlagProcessor(globalConfig),
+										repoUrl,
+										defRepoArg,
+										&commander.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
 											g.changed = true
-											o.Stdoutln("Deleting global default branch")
-											return nil
-										}
 
-										if g.MainBranches == nil {
-											o.Stdoutln("No default branch set for this repo")
-											return nil
-										}
-										rn := repoUrl.Get(d)
-										if _, ok := g.MainBranches[rn]; !ok {
-											o.Stdoutln("No default branch set for this repo")
-											return nil
-										}
-										delete(g.MainBranches, rn)
-										o.Stdoutln("Deleting default branch for", rn)
-										g.changed = true
-										return nil
-									}},
-								),
-							}},
-					}},
-			),
+											if globalConfig.Get(d) {
+												g.DefaultBranch = defRepoArg.Get(d)
+												o.Stdoutln("Setting global default branch to", defRepoArg.Get(d))
+												return nil
+											}
 
-			// Simple commands
-			"b": commander.SerialNodes(
-				commander.Description("Branch"),
-				commander.SimpleExecutableProcessor("git branch"),
-			),
-			"current": commander.SerialNodes(
-				commander.Description("Display current branch"),
-				commander.FlagProcessor(
-					formatFlag,
-					ignoreNoBranch,
-					parentFormatFlag,
-					prefixFlag,
-					suffixFlag,
+											if g.MainBranches == nil {
+												g.MainBranches = map[string]string{}
+											}
+											g.MainBranches[repoUrl.Get(d)] = defRepoArg.Get(d)
+											o.Stdoutf("Setting default branch for %s to %s\n", repoUrl.Get(d), defRepoArg.Get(d))
+											return nil
+										}},
+									),
+									"unset": commander.SerialNodes(
+										commander.FlagProcessor(globalConfig),
+										repoUrl,
+										&commander.ExecutorProcessor{F: func(o command.Output, d *command.Data) error {
+											if globalConfig.Get(d) {
+												g.DefaultBranch = ""
+												g.changed = true
+												o.Stdoutln("Deleting global default branch")
+												return nil
+											}
+
+											if g.MainBranches == nil {
+												o.Stdoutln("No default branch set for this repo")
+												return nil
+											}
+											rn := repoUrl.Get(d)
+											if _, ok := g.MainBranches[rn]; !ok {
+												o.Stdoutln("No default branch set for this repo")
+												return nil
+											}
+											delete(g.MainBranches, rn)
+											o.Stdoutln("Deleting default branch for", rn)
+											g.changed = true
+											return nil
+										}},
+									),
+								}},
+						}},
 				),
-				commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
-					cba := createCurrentBranchArg(true)
-					branch, err := cba.Run(o, d)
-					if err != nil {
-						if ignoreNoBranch.Get(d) {
-							return nil
-						}
-						return o.Err(err)
-					}
 
-					output := []string{
-						prefixFlag.GetOrDefault(d, ""),
-					}
-
-					if parentFormatFlag.Provided(d) {
-						contains := map[string]bool{
-							branch: true,
-						}
-						var branchPath []string
-						for parent, ok := g.ParentBranches[branch]; ok; parent, ok = g.ParentBranches[parent] {
-							if contains[parent] {
-								return o.Stderrln("cycle detected in parent branches")
+				// Simple commands
+				"b": commander.SerialNodes(
+					commander.Description("Branch"),
+					commander.SimpleExecutableProcessor("git branch"),
+				),
+				"current": commander.SerialNodes(
+					commander.Description("Display current branch"),
+					commander.FlagProcessor(
+						formatFlag,
+						ignoreNoBranch,
+						parentFormatFlag,
+						prefixFlag,
+						suffixFlag,
+					),
+					commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
+						cba := createCurrentBranchArg(true)
+						branch, err := cba.Run(o, d)
+						if err != nil {
+							if ignoreNoBranch.Get(d) {
+								return nil
 							}
-							contains[parent] = true
-							branchPath = append(branchPath, parent)
+							return o.Err(err)
 						}
-						slices.Reverse(branchPath)
-						for _, parent := range branchPath {
-							output = append(output, fmt.Sprintf(parentFormatFlag.Get(d), parent))
+
+						output := []string{
+							prefixFlag.GetOrDefault(d, ""),
 						}
-					}
-					output = append(output, fmt.Sprintf(formatFlag.Get(d), branch), suffixFlag.GetOrDefault(d, ""))
-					o.Stdout(strings.Join(output, ""))
-					return nil
-				}, nil),
-			),
-			"l": commander.SerialNodes(
-				commander.Description("Pull"),
-				sshNode,
-				commander.SimpleExecutableProcessor(
-					"git pull",
-				),
-			),
-			// upstream push with pr link
-			"up": commander.SerialNodes(
-				commander.Description("Push upstream and output PR link"),
-				currentBranchArg,
-				repoUrl,
 
-				// git push upstream
-				&commander.ExecutorProcessor{func(o command.Output, d *command.Data) error {
-					sc := &commander.ShellCommand[string]{
-						CommandName: "git",
-						Args: []string{
-							"push",
-							"--set-upstream",
-							"origin",
-							currentBranchArg.Get(d),
-						},
-						HideStderr: true,
-					}
-					if _, err := sc.Run(o, d); err != nil {
-						return o.Annotatef(err, "failed to run git push")
-					}
-
-					return g.printPRLink(o, d)
-				}},
-			),
-			"p": commander.SerialNodes(
-				commander.Description("Push"),
-				commander.FlagProcessor(pushUpstreamFlag),
-				commander.IfData(pushUpstreamFlag.Name(), currentBranchArg),
-				sshNode,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					if pushUpstreamFlag.Get(d) {
-						pushCmd := fmt.Sprintf("git push --set-upstream origin %q", currentBranchArg.Get(d))
-						o.Stdoutln(pushCmd)
-						return []string{pushCmd}, nil
-					}
-					return []string{"git push"}, nil
-				}),
-			),
-			"pp": commander.SerialNodes(
-				commander.Description("Pull and push"),
-				sshNode,
-				executableJoinByOS(
-					"git pull",
-					"git push",
+						if parentFormatFlag.Provided(d) {
+							contains := map[string]bool{
+								branch: true,
+							}
+							var branchPath []string
+							for parent, ok := g.ParentBranches[branch]; ok; parent, ok = g.ParentBranches[parent] {
+								if contains[parent] {
+									return o.Stderrln("cycle detected in parent branches")
+								}
+								contains[parent] = true
+								branchPath = append(branchPath, parent)
+							}
+							slices.Reverse(branchPath)
+							for _, parent := range branchPath {
+								output = append(output, fmt.Sprintf(parentFormatFlag.Get(d), parent))
+							}
+						}
+						output = append(output, fmt.Sprintf(formatFlag.Get(d), branch), suffixFlag.GetOrDefault(d, ""))
+						o.Stdout(strings.Join(output, ""))
+						return nil
+					}, nil),
 				),
-				commander.SimpleExecutableProcessor(),
-			),
-			"sh": commander.SerialNodes(
-				commander.Description("Create ssh-agent"),
-				sshNode,
-			),
-			"uco": commander.SerialNodes(
-				commander.Description("Undo commit"),
-				commander.SimpleExecutableProcessor("git reset HEAD~"),
-			),
-			"f": commander.SerialNodes(
-				commander.Description("Git fetch"),
-				commander.SimpleExecutableProcessor("git fetch"),
-			),
-			"op": commander.SerialNodes(
-				commander.Description("Git stash pop"),
-				stashArgs,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					var r []string
-					for _, c := range stashArgs.Get(d) {
-						r = append(r, fmt.Sprintf("%q", c))
-					}
-					return []string{
-						fmt.Sprintf("git stash pop %s", strings.Join(r, " ")),
-					}, nil
-				}),
-			),
-			"ush": commander.SerialNodes(
-				commander.Description("Git stash push"),
-				stashArgs,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					var r []string
-					for _, c := range stashArgs.Get(d) {
-						r = append(r, fmt.Sprintf("%q", c))
-					}
-					return []string{
-						fmt.Sprintf("git stash push %s", strings.Join(r, " ")),
-					}, nil
-				}),
-			),
-
-			// Complex commands
-			"am": commander.SerialNodes(
-				commander.Description("Git amend"),
-				commander.SimpleExecutableProcessor("git commit --amend --no-edit"),
-			),
-			// Git log
-			"lg": commander.SerialNodes(
-				commander.Description("Git log"),
-				commander.FlagProcessor(
-					gitLogDiffFlag,
-					whitespaceFlag,
-				),
-				gitLogArg,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					if gitLogDiffFlag.Get(d) {
-						return []string{
-							fmt.Sprintf("git diff HEAD~%d %v", gitLogArg.Get(d), whitespaceFlag.Get(d)),
-						}, nil
-					}
-					return []string{
-						fmt.Sprintf("git log -n %d", gitLogArg.Get(d)),
-					}, nil
-				}),
-			),
-			// Checkout main
-			"m": commander.SerialNodes(
-				commander.Description("Checkout main"),
-				repoUrl,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					return []string{
-						fmt.Sprintf("git checkout %s", g.GetDefaultBranch(d)),
-					}, nil
-				}),
-			),
-			// Merge main
-			"mm": commander.SerialNodes(
-				commander.Description("Merge main"),
-				repoUrl,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					return []string{
-						fmt.Sprintf("git merge %s", g.GetDefaultBranch(d)),
-					}, nil
-				}),
-			),
-			// Commit
-			"c": commander.SerialNodes(
-				commander.Description("Commit"),
-				commander.FlagProcessor(
-					nvFlag,
-					pushFlag,
-				),
-				messageArg,
-				commander.If(
+				"l": commander.SerialNodes(
+					commander.Description("Pull"),
 					sshNode,
-					func(i *command.Input, d *command.Data) bool {
-						return pushFlag.Get(d)
-					},
+					commander.SimpleExecutableProcessor(
+						"git pull",
+					),
 				),
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					r := []string{
-						// Replace quoted newlines with actual newlines
-						strings.ReplaceAll(
-							fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
-							`\n`,
-							"\n",
-						),
-					}
-					if pushFlag.Get(d) {
-						r = append(r,
-							"git push",
-						)
-					}
-					r = append(r, "echo Success!")
+				// upstream push with pr link
+				"up": commander.SerialNodes(
+					commander.Description("Push upstream and output PR link"),
+					currentBranchArg,
+					repoUrl,
 
-					return joinByOS(r...)
-				}),
-			),
-
-			// Commit & push
-			"cp": commander.SerialNodes(
-				commander.Description("Commit and push"),
-				commander.FlagProcessor(
-					nvFlag,
-				),
-				messageArg,
-				sshNode,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					return joinByOS(
-						fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
-						"git push",
-						"echo Success!",
-					)
-				}),
-			),
-
-			// Squash
-			/*"q": command.CacheNode(commitCacheKey, g, commander.SerialNodes(
-				commander.Description("Squash local commits"),
-				commander.FlagProcessor(
-					nvFlag,
-					pushFlag,
-				),
-				messageArg,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					// TODO: Fix and test this
-					// TODO: also make sure to combine with "&&" if relevant
-					r := []string{
-						"git reset --soft HEAD~3",
-						fmt.Sprintf("git commit -m %q %s", strings.Join(messageArg.Get(d), " "), nvFlag.Get(d)),
-					}
-					if pushFlag.Get(d) {
-						r = append(r, "git push")
-					}
-					r = append(r, "echo Success!")
-					return joinByOS(r...)
-				})),
-			),*/
-
-			// Checkout branch
-			"pr-link": commander.SerialNodes(
-				commander.Description("Get PR link"),
-				currentBranchArg,
-				repoUrl,
-				commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
-					return g.printPRLink(o, d)
-				}, nil),
-			),
-			"ch": commander.SerialNodes(
-				commander.Description("Checkout new branch"),
-				commander.FlagProcessor(
-					newBranchFlag,
-				),
-				currentBranchArg,
-				branchArg,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-
-					branchName := branchArg.Get(d)
-
-					flag := ""
-					if newBranchFlag.Get(d) {
-						flag = "-b "
-						if g.ParentBranches == nil {
-							g.ParentBranches = map[string]string{}
+					// git push upstream
+					&commander.ExecutorProcessor{func(o command.Output, d *command.Data) error {
+						sc := &commander.ShellCommand[string]{
+							CommandName: "git",
+							Args: []string{
+								"push",
+								"--set-upstream",
+								"origin",
+								currentBranchArg.Get(d),
+							},
+							HideStderr: true,
 						}
-						g.ParentBranches[branchName] = currentBranchArg.Get(d)
-						g.changed = true
-					}
-					return []string{
-						fmt.Sprintf("git checkout %s%s", flag, branchName),
-					}, nil
-				}),
-			),
+						if _, err := sc.Run(o, d); err != nil {
+							return o.Annotatef(err, "failed to run git push")
+						}
 
-			// Delete branch
-			"bd": commander.SerialNodes(
-				commander.Description("Delete branch"),
-				commander.FlagProcessor(forceDelete),
-				branchesArg,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					flag := "-d"
-					if forceDelete.Get(d) {
-						flag = "-D"
-					}
+						return g.printPRLink(o, d)
+					}},
+				),
+				"p": commander.SerialNodes(
+					commander.Description("Push"),
+					commander.FlagProcessor(pushUpstreamFlag),
+					commander.IfData(pushUpstreamFlag.Name(), currentBranchArg),
+					sshNode,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						if pushUpstreamFlag.Get(d) {
+							pushCmd := fmt.Sprintf("git push --set-upstream origin %q", currentBranchArg.Get(d))
+							o.Stdoutln(pushCmd)
+							return []string{pushCmd}, nil
+						}
+						return []string{"git push"}, nil
+					}),
+				),
+				"pp": commander.SerialNodes(
+					commander.Description("Pull and push"),
+					sshNode,
+					executableJoinByOS(
+						"git pull",
+						"git push",
+					),
+					commander.SimpleExecutableProcessor(),
+				),
+				"sh": commander.SerialNodes(
+					commander.Description("Create ssh-agent"),
+					sshNode,
+				),
+				"uco": commander.SerialNodes(
+					commander.Description("Undo commit"),
+					commander.SimpleExecutableProcessor("git reset HEAD~"),
+				),
+				"f": commander.SerialNodes(
+					commander.Description("Git fetch"),
+					commander.SimpleExecutableProcessor("git fetch"),
+				),
+				"op": commander.SerialNodes(
+					commander.Description("Git stash pop"),
+					stashArgs,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						var r []string
+						for _, c := range stashArgs.Get(d) {
+							r = append(r, fmt.Sprintf("%q", c))
+						}
+						return []string{
+							fmt.Sprintf("git stash pop %s", strings.Join(r, " ")),
+						}, nil
+					}),
+				),
+				"ush": commander.SerialNodes(
+					commander.Description("Git stash push"),
+					stashArgs,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						var r []string
+						for _, c := range stashArgs.Get(d) {
+							r = append(r, fmt.Sprintf("%q", c))
+						}
+						return []string{
+							fmt.Sprintf("git stash push %s", strings.Join(r, " ")),
+						}, nil
+					}),
+				),
 
-					var branches []string
-					for _, b := range branchesArg.Get(d) {
-						branches = append(branches, fmt.Sprintf("%q", b))
+				// Complex commands
+				"am": commander.SerialNodes(
+					commander.Description("Git amend"),
+					commander.SimpleExecutableProcessor("git commit --amend --no-edit"),
+				),
+				// Git log
+				"lg": commander.SerialNodes(
+					commander.Description("Git log"),
+					commander.FlagProcessor(
+						gitLogDiffFlag,
+						whitespaceFlag,
+					),
+					gitLogArg,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						if gitLogDiffFlag.Get(d) {
+							return []string{
+								fmt.Sprintf("git diff HEAD~%d %v", gitLogArg.Get(d), whitespaceFlag.Get(d)),
+							}, nil
+						}
+						return []string{
+							fmt.Sprintf("git log -n %d", gitLogArg.Get(d)),
+						}, nil
+					}),
+				),
+				// Checkout main
+				"m": commander.SerialNodes(
+					commander.Description("Checkout main"),
+					repoUrl,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						return []string{
+							fmt.Sprintf("git checkout %s", g.GetDefaultBranch(d)),
+						}, nil
+					}),
+				),
+				// Merge main
+				"mm": commander.SerialNodes(
+					commander.Description("Merge main"),
+					repoUrl,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						return []string{
+							fmt.Sprintf("git merge %s", g.GetDefaultBranch(d)),
+						}, nil
+					}),
+				),
+				// Commit
+				"c": commander.SerialNodes(
+					commander.Description("Commit"),
+					commander.FlagProcessor(
+						nvFlag,
+						pushFlag,
+					),
+					messageArg,
+					commander.If(
+						sshNode,
+						func(i *command.Input, d *command.Data) bool {
+							return pushFlag.Get(d)
+						},
+					),
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						r := []string{
+							// Replace quoted newlines with actual newlines
+							strings.ReplaceAll(
+								fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
+								`\n`,
+								"\n",
+							),
+						}
+						if pushFlag.Get(d) {
+							r = append(r,
+								"git push",
+							)
+						}
+						r = append(r, "echo Success!")
 
-						if g.ParentBranches != nil {
-							if _, ok := g.ParentBranches[b]; ok {
-								delete(g.ParentBranches, b)
-								g.changed = true
+						return joinByOS(r...)
+					}),
+				),
+
+				// Commit & push
+				"cp": commander.SerialNodes(
+					commander.Description("Commit and push"),
+					commander.FlagProcessor(
+						nvFlag,
+					),
+					messageArg,
+					sshNode,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						return joinByOS(
+							fmt.Sprintf("git commit %s-m %q", nvFlag.Get(d), strings.Join(messageArg.Get(d), " ")),
+							"git push",
+							"echo Success!",
+						)
+					}),
+				),
+
+				// Squash
+				/*"q": command.CacheNode(commitCacheKey, g, commander.SerialNodes(
+					commander.Description("Squash local commits"),
+					commander.FlagProcessor(
+						nvFlag,
+						pushFlag,
+					),
+					messageArg,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						// TODO: Fix and test this
+						// TODO: also make sure to combine with "&&" if relevant
+						r := []string{
+							"git reset --soft HEAD~3",
+							fmt.Sprintf("git commit -m %q %s", strings.Join(messageArg.Get(d), " "), nvFlag.Get(d)),
+						}
+						if pushFlag.Get(d) {
+							r = append(r, "git push")
+						}
+						r = append(r, "echo Success!")
+						return joinByOS(r...)
+					})),
+				),*/
+
+				// Checkout branch
+				"pr-link": commander.SerialNodes(
+					commander.Description("Get PR link"),
+					currentBranchArg,
+					repoUrl,
+					commander.SimpleProcessor(func(i *command.Input, o command.Output, d *command.Data, ed *command.ExecuteData) error {
+						return g.printPRLink(o, d)
+					}, nil),
+				),
+				"ch": commander.SerialNodes(
+					commander.Description("Checkout new branch"),
+					commander.FlagProcessor(
+						newBranchFlag,
+					),
+					currentBranchArg,
+					branchArg,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+
+						branchName := branchArg.Get(d)
+
+						flag := ""
+						if newBranchFlag.Get(d) {
+							flag = "-b "
+							if g.ParentBranches == nil {
+								g.ParentBranches = map[string]string{}
+							}
+							g.ParentBranches[branchName] = currentBranchArg.Get(d)
+							g.changed = true
+						}
+						return []string{
+							fmt.Sprintf("git checkout %s%s", flag, branchName),
+						}, nil
+					}),
+				),
+
+				// Delete branch
+				"bd": commander.SerialNodes(
+					commander.Description("Delete branch"),
+					commander.FlagProcessor(forceDelete),
+					branchesArg,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						flag := "-d"
+						if forceDelete.Get(d) {
+							flag = "-D"
+						}
+
+						var branches []string
+						for _, b := range branchesArg.Get(d) {
+							branches = append(branches, fmt.Sprintf("%q", b))
+
+							if g.ParentBranches != nil {
+								if _, ok := g.ParentBranches[b]; ok {
+									delete(g.ParentBranches, b)
+									g.changed = true
+								}
 							}
 						}
-					}
 
-					return []string{
-						fmt.Sprintf("git branch %s %s", flag, strings.Join(branches, " ")),
-					}, nil
-				}),
-			),
-
-			// Diff
-			"d": commander.SerialNodes(
-				commander.Description("Diff"),
-				commander.Getwd,
-				commander.FlagProcessor(
-					mainFlag,
-					prevCommitFlag,
-					whitespaceFlag,
-					addFlag,
+						return []string{
+							fmt.Sprintf("git branch %s %s", flag, strings.Join(branches, " ")),
+						}, nil
+					}),
 				),
-				diffArgs,
-				repoUrl,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 
-					if addFlag.Get(d) {
-						return g.add(diffArgs.Get(d)), nil
-					}
+				// Diff
+				"d": commander.SerialNodes(
+					commander.Description("Diff"),
+					commander.Getwd,
+					commander.FlagProcessor(
+						mainFlag,
+						prevCommitFlag,
+						whitespaceFlag,
+						addFlag,
+					),
+					diffArgs,
+					repoUrl,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 
-					branch := "--"
-					if mainFlag.Get(d) {
-						branch = g.GetDefaultBranch(d)
-					}
-					if prevCommitFlag.Get(d) {
-						branch = `"$(git rev-parse @~1)"`
-					}
-					return []string{
-						fmt.Sprintf("git diff %s %s %s", whitespaceFlag.Get(d), branch, strings.Join(diffArgs.Get(d), " ")),
-					}, nil
-				}),
-			),
+						if addFlag.Get(d) {
+							return g.add(diffArgs.Get(d)), nil
+						}
 
-			// Undo change
-			"uc": commander.SerialNodes(
-				commander.Description("Undo change"),
-				ucArgs,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					return []string{
-						fmt.Sprintf("git checkout -- %s", strings.Join(ucArgs.Get(d), " ")),
-					}, nil
-				}),
-			),
-
-			// Undo add
-			"ua": commander.SerialNodes(
-				commander.Description("Undo add"),
-				uaArgs,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					return []string{
-						fmt.Sprintf("git reset -- %s", strings.Join(ucArgs.Get(d), " ")),
-					}, nil
-				}),
-			),
-
-			// Status
-			"s": commander.SerialNodes(
-				commander.Description("Status"),
-				statusFilesArg,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					return []string{fmt.Sprintf("git status %s", strings.Join(statusFilesArg.Get(d), " "))}, nil
-				}),
-			),
-
-			// Add
-			"a": commander.SerialNodes(
-				commander.FlagProcessor(
-					noopWhitespaceFlag,
+						branch := "--"
+						if mainFlag.Get(d) {
+							branch = g.GetDefaultBranch(d)
+						}
+						if prevCommitFlag.Get(d) {
+							branch = `"$(git rev-parse @~1)"`
+						}
+						return []string{
+							fmt.Sprintf("git diff %s %s %s", whitespaceFlag.Get(d), branch, strings.Join(diffArgs.Get(d), " ")),
+						}, nil
+					}),
 				),
-				commander.Description("Add"),
-				addFilesArg,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					fs := addFilesArg.Get(d)
-					return g.add(fs), nil
-				}),
-			),
 
-			// Remove
-			"rm": commander.SerialNodes(
-				commander.Description("Remove"),
-				rmFilesArg,
-				commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-					fs := rmFilesArg.Get(d)
-					return []string{fmt.Sprintf("rm %s", strings.Join(fs, " "))}, nil
-				}),
-			),
+				// Undo change
+				"uc": commander.SerialNodes(
+					commander.Description("Undo change"),
+					ucArgs,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						return []string{
+							fmt.Sprintf("git checkout -- %s", strings.Join(ucArgs.Get(d), " ")),
+						}, nil
+					}),
+				),
 
-			// Rebase
-			"rb": &commander.BranchNode{
-				Branches: map[string]command.Node{
-					"a": commander.SerialNodes(
-						commander.Description("Abort"),
-						commander.SimpleExecutableProcessor("git rebase --abort"),
-						commander.EchoExecuteData(),
+				// Undo add
+				"ua": commander.SerialNodes(
+					commander.Description("Undo add"),
+					uaArgs,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						return []string{
+							fmt.Sprintf("git reset -- %s", strings.Join(ucArgs.Get(d), " ")),
+						}, nil
+					}),
+				),
+
+				// Status
+				"s": commander.SerialNodes(
+					commander.Description("Status"),
+					statusFilesArg,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						return []string{fmt.Sprintf("git status %s", strings.Join(statusFilesArg.Get(d), " "))}, nil
+					}),
+				),
+
+				// Add
+				"a": commander.SerialNodes(
+					commander.FlagProcessor(
+						noopWhitespaceFlag,
 					),
-					"c": commander.SerialNodes(
-						commander.Description("Continue"),
-						commander.SimpleExecutableProcessor("git rebase --continue"),
-						commander.EchoExecuteData(),
-					),
+					commander.Description("Add"),
+					addFilesArg,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						fs := addFilesArg.Get(d)
+						return g.add(fs), nil
+					}),
+				),
+
+				// Remove
+				"rm": commander.SerialNodes(
+					commander.Description("Remove"),
+					rmFilesArg,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						fs := rmFilesArg.Get(d)
+						return []string{fmt.Sprintf("rm %s", strings.Join(fs, " "))}, nil
+					}),
+				),
+
+				// Rebase
+				"rb": &commander.BranchNode{
+					Branches: map[string]command.Node{
+						"a": commander.SerialNodes(
+							commander.Description("Abort"),
+							commander.SimpleExecutableProcessor("git rebase --abort"),
+							commander.EchoExecuteData(),
+						),
+						"c": commander.SerialNodes(
+							commander.Description("Continue"),
+							commander.SimpleExecutableProcessor("git rebase --continue"),
+							commander.EchoExecuteData(),
+						),
+					},
 				},
 			},
+			Synonyms: commander.BranchSynonyms(map[string][]string{
+				"l": {"pl"},
+			}),
 		},
-		Synonyms: commander.BranchSynonyms(map[string][]string{
-			"l": {"pl"},
-		}),
-	}
+	)
 }
 
 func (g *git) printPRLink(o command.Output, d *command.Data) error {
