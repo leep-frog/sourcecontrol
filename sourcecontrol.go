@@ -243,9 +243,8 @@ func BranchesCompleter() commander.Completer[[]string] {
 
 func GitAliasers() sourcerer.Option {
 	return sourcerer.Aliasers(map[string][]string{
-		"gp":  {"g", "p"},
-		"gup": {"g", "up"},
-		// Don't include 'gl' since that is an alias of goleep
+		"gp":   {"g", "p"},
+		"gup":  {"g", "up"},
 		"gpl":  {"g", "pl"},
 		"gs":   {"g", "s"},
 		"guco": {"g", "uco"},
@@ -273,6 +272,7 @@ func GitAliasers() sourcerer.Option {
 		"gush": {"g", "ush"},
 		"gl":   {"g", "pr-link"},
 		"grm":  {"g", "rm"},
+		"gend": {"g", "end"},
 	})
 }
 
@@ -800,6 +800,26 @@ func (g *git) Node() command.Node {
 							fmt.Sprintf("git diff %s %s %s", whitespaceFlag.Get(d), branch, strings.Join(diffArgs.Get(d), " ")),
 						}, nil
 					}),
+				),
+
+				// End branch (after it is merged)
+				"end": commander.SerialNodes(
+					commander.Description("End a branch after it has been merged"),
+					currentBranchArg,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						currentBranch := currentBranchArg.Get(d)
+						parent, ok := g.ParentBranches[currentBranch]
+						if !ok {
+							return nil, o.Stderrf("branch %s does not have a known parent branch\n", currentBranch)
+						}
+
+						return joinByOS(
+							fmt.Sprintf("git checkout %s", parent),
+							"git pull",
+							fmt.Sprintf("gbd %s", currentBranch),
+						)
+					}),
+					commander.EchoExecuteData(),
 				),
 
 				// Undo change

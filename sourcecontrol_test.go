@@ -76,6 +76,9 @@ func TestExecution(t *testing.T) {
 		`┃   Diff`,
 		`┣━━ d [ FILE ... ] --main|-m --commit|-c --whitespace|-w --add|-a`,
 		`┃`,
+		`┃   End a branch after it has been merged`,
+		`┣━━ end`,
+		`┃`,
 		`┃   Git fetch`,
 		`┣━━ f`,
 		`┃`,
@@ -2440,6 +2443,105 @@ func TestExecution(t *testing.T) {
 						pushFlag.Name():   true,
 					}},
 					WantExecuteData: &command.ExecuteData{FunctionWrap: true},
+				},
+			},
+			// End branch tests
+			{
+				name: "end branch requires current branch",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"end"},
+					WantRunContents: []*commandtest.RunContents{{
+						Name: "git",
+						Args: []string{
+							"rev-parse",
+							"--abbrev-ref",
+							"HEAD",
+						},
+					}},
+					RunResponses: []*commandtest.FakeRun{{
+						Err: fmt.Errorf("oops"),
+					}},
+					WantStderr: "failed to execute shell command: oops\n",
+					WantErr:    fmt.Errorf("failed to execute shell command: oops"),
+				},
+			},
+			{
+				name: "end branch requires parent branch",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"end"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"tree-branch"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+					}},
+					WantStderr: "branch tree-branch does not have a known parent branch\n",
+					WantErr:    fmt.Errorf("branch tree-branch does not have a known parent branch"),
+				},
+			},
+			{
+				name: "end branch succeeds",
+				g: &git{
+					ParentBranches: map[string]string{
+						"tree-branch": "trunk",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"end"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{
+							Stdout: []string{"tree-branch"},
+						},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+					}},
+				},
+				osChecks: map[string]*osCheck{
+					"windows": {
+						wantExecutable: []string{
+							wCmd("git checkout trunk"),
+							wCmd("git pull"),
+							wCmd("gbd tree-branch"),
+						},
+						wantStdout: []string{
+							wCmd("git checkout trunk"),
+							wCmd("git pull"),
+							wCmd("gbd tree-branch"),
+							"",
+						},
+					},
+					"linux": {
+						wantExecutable: []string{
+							"git checkout trunk && git pull && gbd tree-branch",
+						},
+						wantStdout: []string{
+							"git checkout trunk && git pull && gbd tree-branch",
+							"",
+						},
+					},
 				},
 			},
 			/* Useful for commenting out tests. */
