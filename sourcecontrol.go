@@ -255,6 +255,7 @@ func GitAliasers() sourcerer.Option {
 		"gcb":  {"g", "ch"},
 		"gnb":  {"g", "ch", "-n"},
 		"gbn":  {"g", "ch", "-n"},
+		"gm":   {"g", "pb"}, // gm for `g minus` (like m alias)
 		"gmm":  {"g", "mm"},
 		"mm":   {"g", "mm"},
 		"gcp":  {"g", "cp"},
@@ -280,6 +281,7 @@ type git struct {
 	MainBranches   map[string]string
 	DefaultBranch  string
 	ParentBranches map[string]string
+	PreviousBranch string
 	changed        bool
 }
 
@@ -613,11 +615,30 @@ func (g *git) Node() command.Node {
 						}, nil
 					}),
 				),
+				// Go back to previous branch
+				"pb": commander.SerialNodes(
+					commander.Description("Checkout previous branch"),
+					currentBranchArg,
+					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						if g.PreviousBranch == "" {
+							return nil, o.Stderrln("no previous branch exists")
+						}
+						prevBranch := g.PreviousBranch
+						g.PreviousBranch = currentBranchArg.Get(d)
+						g.changed = true
+						return []string{
+							fmt.Sprintf("git checkout %s", prevBranch),
+						}, nil
+					}),
+				),
 				// Checkout main
 				"m": commander.SerialNodes(
 					commander.Description("Checkout main"),
+					currentBranchArg,
 					repoUrl,
 					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						g.PreviousBranch = currentBranchArg.Get(d)
+						g.changed = true
 						return []string{
 							fmt.Sprintf("git checkout %s", g.GetDefaultBranch(d)),
 						}, nil
@@ -734,12 +755,18 @@ func (g *git) Node() command.Node {
 								g.ParentBranches = map[string]string{}
 							}
 							g.ParentBranches[branchName] = currentBranchArg.Get(d)
-							g.changed = true
 						}
 						return []string{
 							fmt.Sprintf("git checkout %s%s", flag, branchName),
 						}, nil
 					}),
+					// ExecutableProcessor runs before arg processing is done, so change
+					// will have been updated
+					&commander.ExecutorProcessor{func(o command.Output, d *command.Data) error {
+						g.PreviousBranch = currentBranchArg.Get(d)
+						g.changed = true
+						return nil
+					}},
 				),
 
 				// Delete branch
