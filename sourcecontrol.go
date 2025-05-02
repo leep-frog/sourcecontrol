@@ -85,20 +85,27 @@ var (
 
 	addFlag = commander.BoolFlag("add", 'a', "If set, then files will be added")
 
-	diffCompleter = commander.CompleterFromFunc(func(ss []string, d *command.Data) (*command.Completion, error) {
-
-		// Get git root
-		gitRootDir := &commander.ShellCommand[string]{
+	gitRootDirFunc = func(completionMode bool) *commander.ShellCommand[string] {
+		return &commander.ShellCommand[string]{
+			ArgName:     "GIT_ROOT",
 			CommandName: "git",
 			Args: []string{
 				"rev-parse",
 				"--show-toplevel",
 			},
-			ForwardStdout: false,
-			HideStderr:    true,
+			ForwardStdout:     false,
+			HideStderr:        completionMode,
+			DontRunOnComplete: !completionMode,
 			// TODO: DontRunOnExecute/Usage or field for when it should run
 		}
-		gitRoot, err := gitRootDir.Run(nil, d)
+	}
+	gitRootDir               = gitRootDirFunc(false)
+	gitRootDirCompletionMode = gitRootDirFunc(true)
+
+	diffCompleter = commander.CompleterFromFunc(func(ss []string, d *command.Data) (*command.Completion, error) {
+
+		// Get git root
+		gitRoot, err := gitRootDirCompletionMode.Run(nil, d)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get git root: %v", err)
 		}
@@ -110,6 +117,7 @@ var (
 				"diff",
 				"--name-only",
 			},
+
 			ForwardStdout: false,
 			HideStderr:    true,
 		}
@@ -281,8 +289,9 @@ type git struct {
 	MainBranches   map[string]string
 	DefaultBranch  string
 	ParentBranches map[string]string
-	PreviousBranch string
-	changed        bool
+	// Map from repo path to previous branch
+	PreviousBranches map[string]string
+	changed          bool
 }
 
 func (g *git) Changed() bool {
@@ -618,14 +627,15 @@ func (g *git) Node() command.Node {
 				// Go back to previous branch
 				"pb": commander.SerialNodes(
 					commander.Description("Checkout previous branch"),
+					gitRootDir,
 					currentBranchArg,
 					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-						if g.PreviousBranch == "" {
+						gitRoot := gitRootDir.Get(d)
+						prevBranch, ok := g.PreviousBranches[gitRoot]
+						if !ok {
 							return nil, o.Stderrln("no previous branch exists")
 						}
-						prevBranch := g.PreviousBranch
-						g.PreviousBranch = currentBranchArg.Get(d)
-						g.changed = true
+						g.setPreviousBranch(gitRoot, currentBranchArg.Get(d))
 						return []string{
 							fmt.Sprintf("git checkout %s", prevBranch),
 						}, nil
@@ -634,11 +644,11 @@ func (g *git) Node() command.Node {
 				// Checkout main
 				"m": commander.SerialNodes(
 					commander.Description("Checkout main"),
+					gitRootDir,
 					currentBranchArg,
 					repoUrl,
 					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
-						g.PreviousBranch = currentBranchArg.Get(d)
-						g.changed = true
+						g.setPreviousBranch(gitRootDir.Get(d), currentBranchArg.Get(d))
 						return []string{
 							fmt.Sprintf("git checkout %s", g.GetDefaultBranch(d)),
 						}, nil
@@ -742,6 +752,7 @@ func (g *git) Node() command.Node {
 					commander.FlagProcessor(
 						newBranchFlag,
 					),
+					gitRootDir,
 					currentBranchArg,
 					branchArg,
 					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
@@ -763,8 +774,7 @@ func (g *git) Node() command.Node {
 					// ExecutableProcessor runs before arg processing is done, so change
 					// will have been updated
 					&commander.ExecutorProcessor{func(o command.Output, d *command.Data) error {
-						g.PreviousBranch = currentBranchArg.Get(d)
-						g.changed = true
+						g.setPreviousBranch(gitRootDir.Get(d), currentBranchArg.Get(d))
 						return nil
 					}},
 				),
@@ -948,6 +958,14 @@ func (g *git) printPRLink(o command.Output, d *command.Data) error {
 	} else {
 		return o.Stderrf("Unknown parent branch for branch %s; and no default main branch set\n", cb)
 	}
+}
+
+func (g *git) setPreviousBranch(gitRoot, branch string) {
+	if g.PreviousBranches == nil {
+		g.PreviousBranches = map[string]string{}
+	}
+	g.PreviousBranches[gitRoot] = branch
+	g.changed = true
 }
 
 func (g *git) add(files []string) []string {
