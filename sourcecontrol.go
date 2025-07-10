@@ -173,7 +173,7 @@ var (
 	noopWhitespaceFlag = commander.BoolFlag(whitespaceFlag.Name(), whitespaceFlag.ShortName(), "No-op so that when running add after `gd ... -w` we can keep the -w at the end", commander.Hidden[bool]())
 	uaArgs             = commander.ListArg[string](
 		"FILE", "Files to un-add",
-		1, command.UnboundedList,
+		0, command.UnboundedList,
 		greenFileCompleter,
 	)
 	diffArgs = commander.ListArg[string](
@@ -875,8 +875,13 @@ func (g *git) Node() command.Node {
 					commander.Description("Undo add"),
 					uaArgs,
 					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
+						args := "."
+						if len(uaArgs.Get(d)) > 0 {
+							args = strings.Join(uaArgs.Get(d), " ")
+						}
+
 						return []string{
-							fmt.Sprintf("git reset -- %s", strings.Join(ucArgs.Get(d), " ")),
+							fmt.Sprintf("git reset -- %s", args),
 						}, nil
 					}),
 				),

@@ -128,7 +128,7 @@ func TestExecution(t *testing.T) {
 		`┣━━ sh`,
 		`┃`,
 		`┃   Undo add`,
-		`┣━━ ua FILE [ FILE ... ]`,
+		`┣━━ ua [ FILE ... ]`,
 		`┃`,
 		`┃   Undo change`,
 		`┣━━ uc FILE [ FILE ... ]`,
@@ -1372,11 +1372,15 @@ func TestExecution(t *testing.T) {
 			},
 			// Undo add
 			{
-				name: "undo requires args",
+				name: "undo works with no args",
 				etc: &commandtest.ExecuteTestCase{
-					Args:       []string{"ua"},
-					WantStderr: "Argument \"FILE\" requires at least 1 argument, got 0\n",
-					WantErr:    fmt.Errorf(`Argument "FILE" requires at least 1 argument, got 0`),
+					Args: []string{"ua"},
+					// WantData: &command.Data{Values: map[string]interface{}{}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git reset -- .`,
+						},
+					},
 				},
 			},
 			{
