@@ -64,10 +64,47 @@ var (
 	ignoreNoBranch   = commander.BoolFlag("ignore-no-branch", 'i', "Ignore any errors in the git branch command")
 	pushFlag         = commander.BoolFlag("push", 'p', "Whether or not to push afterwards")
 	messageArg       = commander.ListArg[string]("MESSAGE", "Commit message", 1, command.UnboundedList)
-	branchArg        = commander.Arg(
+	userArg          = &commander.EnvArg{
+		Name: "USER",
+	}
+	branchArg = commander.Arg(
 		"BRANCH",
 		"Branch",
 		BranchCompleter(),
+		&commander.Transformer[string]{func(s string, d *command.Data) (string, error) {
+			sc := &commander.ShellCommand[[]string]{
+				CommandName:   "git",
+				Args:          []string{"branch", "--list"},
+				HideStderr:    true,
+				ForwardStdout: false,
+			}
+
+			bs, err := sc.Run(nil, d)
+			if err != nil {
+				return "", fmt.Errorf("failed to get git branches: %v", err)
+			}
+
+			// First check for an exact branch match, before adding the prefix.
+			// This accounts for instances where the branches `person/abc` and `abc` exist.
+			for _, b := range bs {
+				b = strings.TrimSpace(b)
+				if s == b {
+					return s, nil
+				}
+			}
+
+			// Then check if the branch with the user prefix exists
+			for _, b := range bs {
+				b = strings.TrimSpace(b)
+				withUser := fmt.Sprintf("%s/%s", userArg.Get(d), s)
+				if withUser == b {
+					return withUser, nil
+				}
+			}
+
+			// Otherwise, just return the branch name the user provided
+			return s, nil
+		}},
 	)
 	branchesArg = commander.ListArg(
 		"BRANCH",
@@ -222,23 +259,32 @@ func branchCompleter(s string, d *command.Data) (*command.Completion, error) {
 		return c, err
 	}
 
-	var r []string
+	r := map[string]bool{}
 	for _, s := range c.Suggestions {
+		s = strings.TrimSpace(s)
 		if !strings.Contains(s, "*") {
-			r = append(r, strings.TrimSpace(s))
+			r[s] = true
+			userPrefix := fmt.Sprintf("%s/", userArg.Get(d))
+			if suffix, ok := strings.CutPrefix(s, userPrefix); ok {
+				r[suffix] = true
+			}
 		}
 	}
-	c.Suggestions = r
+
+	c.Suggestions = nil
+	for k := range r {
+		c.Suggestions = append(c.Suggestions, k)
+	}
 	return c, nil
 }
 
 func BranchCompleter() commander.Completer[string] {
-	return commander.CompleterFromFunc[string](branchCompleter)
+	return commander.CompleterFromFunc(branchCompleter)
 }
 
 func BranchesCompleter() commander.Completer[[]string] {
 
-	return commander.CompleterFromFunc[[]string](func(ss []string, d *command.Data) (*command.Completion, error) {
+	return commander.CompleterFromFunc(func(ss []string, d *command.Data) (*command.Completion, error) {
 		c, err := branchCompleter(ss[len(ss)-1], d)
 		if c == nil || err != nil {
 			return c, err
@@ -754,6 +800,7 @@ func (g *git) Node() command.Node {
 					),
 					gitRootDir,
 					currentBranchArg,
+					userArg,
 					branchArg,
 					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 

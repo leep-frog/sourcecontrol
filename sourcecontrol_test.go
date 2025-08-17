@@ -174,6 +174,7 @@ func TestExecution(t *testing.T) {
 		`  [u] upstream: If set, push branch to upstream`,
 		`  [w] whitespace: Whether or not to show whitespace in diffs`,
 	}, "\n")
+	_ = u
 
 	for _, curOS := range []sourcerer.OS{sourcerer.Linux(), sourcerer.Windows()} {
 		for _, test := range []struct {
@@ -1095,6 +1096,7 @@ func TestExecution(t *testing.T) {
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitRootDir.ArgName:       "/git/root",
 						currentBranchArg.ArgName: "some-branch",
+						userArg.Name:             "person",
 					}},
 					WantStderr: "Argument \"BRANCH\" requires at least 1 argument, got 0\n",
 					WantErr:    fmt.Errorf(`Argument "BRANCH" requires at least 1 argument, got 0`),
@@ -1107,15 +1109,18 @@ func TestExecution(t *testing.T) {
 					WantRunContents: []*commandtest.RunContents{
 						{Name: "git", Args: []string{"rev-parse", "--show-toplevel"}},
 						{Name: "git", Args: []string{"rev-parse", "--abbrev-ref", "HEAD"}},
+						{Name: "git", Args: []string{"branch", "--list"}},
 					},
 					RunResponses: []*commandtest.FakeRun{
 						{Stdout: []string{"/git/root"}},
 						{Stdout: []string{"some-branch"}},
+						{Stdout: []string{"some-branch", "other-branch"}},
 					},
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitRootDir.ArgName:       "/git/root",
 						branchArg.Name():         "tree",
 						currentBranchArg.ArgName: "some-branch",
+						userArg.Name:             "person",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -1127,21 +1132,47 @@ func TestExecution(t *testing.T) {
 				},
 			},
 			{
+				name: "checkout fails if can't list branches",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"ch", "tree"},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"rev-parse", "--show-toplevel"}},
+						{Name: "git", Args: []string{"rev-parse", "--abbrev-ref", "HEAD"}},
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{"/git/root"}},
+						{Stdout: []string{"some-branch"}},
+						{Stdout: []string{"some-branch", "heyo"}, Err: fmt.Errorf("whoops"), Stderr: []string{"argo"}},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						gitRootDir.ArgName:       "/git/root",
+						currentBranchArg.ArgName: "some-branch",
+						userArg.Name:             "person",
+					}},
+					WantStderr: "Custom transformer failed: failed to get git branches: failed to execute shell command: whoops\n",
+					WantErr:    fmt.Errorf(`Custom transformer failed: failed to get git branches: failed to execute shell command: whoops`),
+				},
+			},
+			{
 				name: "checks out a branch",
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"ch", "tree"},
 					WantRunContents: []*commandtest.RunContents{
 						{Name: "git", Args: []string{"rev-parse", "--show-toplevel"}},
 						{Name: "git", Args: []string{"rev-parse", "--abbrev-ref", "HEAD"}},
+						{Name: "git", Args: []string{"branch", "--list"}},
 					},
 					RunResponses: []*commandtest.FakeRun{
 						{Stdout: []string{"/git/root"}},
 						{Stdout: []string{"some-branch"}},
+						{Stdout: []string{"xyz"}},
 					},
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitRootDir.ArgName:       "/git/root",
 						branchArg.Name():         "tree",
 						currentBranchArg.ArgName: "some-branch",
+						userArg.Name:             "person",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -1163,16 +1194,19 @@ func TestExecution(t *testing.T) {
 					WantRunContents: []*commandtest.RunContents{
 						{Name: "git", Args: []string{"rev-parse", "--show-toplevel"}},
 						{Name: "git", Args: []string{"rev-parse", "--abbrev-ref", "HEAD"}},
+						{Name: "git", Args: []string{"branch", "--list"}},
 					},
 					RunResponses: []*commandtest.FakeRun{
 						{Stdout: []string{"/git/root"}},
 						{Stdout: []string{"some-branch"}},
+						{Stdout: []string{"xyz"}},
 					},
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitRootDir.ArgName:       "/git/root",
 						branchArg.Name():         "tree",
 						newBranchFlag.Name():     true,
 						currentBranchArg.ArgName: "some-branch",
+						userArg.Name:             "person",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -1199,16 +1233,19 @@ func TestExecution(t *testing.T) {
 					WantRunContents: []*commandtest.RunContents{
 						{Name: "git", Args: []string{"rev-parse", "--show-toplevel"}},
 						{Name: "git", Args: []string{"rev-parse", "--abbrev-ref", "HEAD"}},
+						{Name: "git", Args: []string{"branch", "--list"}},
 					},
 					RunResponses: []*commandtest.FakeRun{
 						{Stdout: []string{"/git/root"}},
 						{Stdout: []string{"some-branch"}},
+						{Stdout: []string{"xyz"}},
 					},
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitRootDir.ArgName:       "/git/root",
 						branchArg.Name():         "tree",
 						newBranchFlag.Name():     true,
 						currentBranchArg.ArgName: "some-branch",
+						userArg.Name:             "person",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -1238,16 +1275,19 @@ func TestExecution(t *testing.T) {
 					WantRunContents: []*commandtest.RunContents{
 						{Name: "git", Args: []string{"rev-parse", "--show-toplevel"}},
 						{Name: "git", Args: []string{"rev-parse", "--abbrev-ref", "HEAD"}},
+						{Name: "git", Args: []string{"branch", "--list"}},
 					},
 					RunResponses: []*commandtest.FakeRun{
 						{Stdout: []string{"/git/root"}},
 						{Stdout: []string{"some-branch"}},
+						{Stdout: []string{"xyz"}},
 					},
 					WantData: &command.Data{Values: map[string]interface{}{
 						gitRootDir.ArgName:       "/git/root",
 						branchArg.Name():         "tree",
 						newBranchFlag.Name():     true,
 						currentBranchArg.ArgName: "some-branch",
+						userArg.Name:             "person",
 					}},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
@@ -1262,6 +1302,78 @@ func TestExecution(t *testing.T) {
 					ParentBranches: map[string]string{
 						"tree":  "some-branch",
 						"other": "other-branch",
+					},
+				},
+			},
+			{
+				name: "adds user prefix if matches",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"ch", "tree"},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"rev-parse", "--show-toplevel"}},
+						{Name: "git", Args: []string{"rev-parse", "--abbrev-ref", "HEAD"}},
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{"/git/root"}},
+						{Stdout: []string{"some-branch"}},
+						{Stdout: []string{
+							"limb",
+							"\tperson/tree  ",
+							"person/root",
+							"leaf",
+						}},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						gitRootDir.ArgName:       "/git/root",
+						branchArg.Name():         "person/tree",
+						currentBranchArg.ArgName: "some-branch",
+						userArg.Name:             "person",
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git checkout person/tree`,
+						},
+					},
+				},
+				want: &git{
+					PreviousBranches: map[string]string{
+						"/git/root": "some-branch",
+					},
+				},
+			},
+			{
+				name: "uses branch with no prefix if both exist",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"ch", "tree"},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"rev-parse", "--show-toplevel"}},
+						{Name: "git", Args: []string{"rev-parse", "--abbrev-ref", "HEAD"}},
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{"/git/root"}},
+						{Stdout: []string{"some-branch"}},
+						{Stdout: []string{
+							"person/tree",
+							" tree\t",
+						}},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						gitRootDir.ArgName:       "/git/root",
+						branchArg.Name():         "tree",
+						currentBranchArg.ArgName: "some-branch",
+						userArg.Name:             "person",
+					}},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git checkout tree`,
+						},
+					},
+				},
+				want: &git{
+					PreviousBranches: map[string]string{
+						"/git/root": "some-branch",
 					},
 				},
 			},
@@ -2795,6 +2907,9 @@ func TestExecution(t *testing.T) {
 			/* Useful for commenting out tests. */
 		} {
 			t.Run(fmt.Sprintf("[%s] %s", curOS.Name(), test.name), func(t *testing.T) {
+				test.etc.Env = map[string]string{
+					"USER": "person",
+				}
 				commandtest.StubGetwd(t, filepath.Join("/", "fake", "root"), nil)
 				commandtest.StubValue(t, &sourcerer.CurrentOS, curOS)
 				if oschk, ok := test.osChecks[curOS.Name()]; ok {
@@ -3306,6 +3421,30 @@ func TestAutocomplete(t *testing.T) {
 			},
 		},
 		{
+			name: "Branch completion strips user prefix",
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd ch ",
+				SkipDataCheck: true,
+				Want: &command.Autocompletion{
+					Suggestions: []string{
+						"b-1",
+						"b-2",
+						"other/b-1",
+						"person/b-1",
+						"person/b-2",
+					},
+				},
+				WantRunContents: []*commandtest.RunContents{{
+					Name: "git",
+					Args: []string{"branch", "--list"},
+				}},
+				RunResponses: []*commandtest.FakeRun{{
+					Stdout: []string{"  b-1 ", "* 	b-2", "		other/b-1		", "person/b-1", " \tperson/b-2 "},
+				}},
+			},
+		},
+		// Git add completions
+		{
 			name: "PrefixCompleter handles error",
 			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd a ",
@@ -3378,6 +3517,9 @@ func TestAutocomplete(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if test.getwd != "" {
 				commandtest.StubGetwd(t, test.getwd, test.getwdErr)
+			}
+			test.ctc.Env = map[string]string{
+				"USER": "person",
 			}
 			g := &git{}
 			test.ctc.Node = g.Node()
