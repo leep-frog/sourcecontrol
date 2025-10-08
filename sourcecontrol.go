@@ -67,29 +67,31 @@ var (
 	userArg          = &commander.EnvArg{
 		Name: "USER",
 	}
-	branchArg = commander.Arg(
-		"BRANCH",
-		"Branch",
-		BranchCompleter(),
-		&commander.Transformer[string]{func(s string, d *command.Data) (string, error) {
-			sc := &commander.ShellCommand[[]string]{
-				CommandName:   "git",
-				Args:          []string{"branch", "--list"},
-				HideStderr:    true,
-				ForwardStdout: false,
-			}
 
-			bs, err := sc.Run(nil, d)
-			if err != nil {
-				return "", fmt.Errorf("failed to get git branches: %v", err)
-			}
+	userPrefixesTransformer = func(ss []string, d *command.Data) ([]string, error) {
+		sc := &commander.ShellCommand[[]string]{
+			CommandName:   "git",
+			Args:          []string{"branch", "--list"},
+			HideStderr:    true,
+			ForwardStdout: false,
+		}
+
+		bs, err := sc.Run(nil, d)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get git branches: %v", err)
+		}
+
+		var transformedArgs []string
+
+		for _, s := range ss {
 
 			// First check for an exact branch match, before adding the prefix.
 			// This accounts for instances where the branches `person/abc` and `abc` exist.
 			for _, b := range bs {
 				b = strings.TrimSpace(b)
 				if s == b {
-					return s, nil
+					transformedArgs = append(transformedArgs, s)
+					goto LOOP_END
 				}
 			}
 
@@ -98,13 +100,34 @@ var (
 				b = strings.TrimSpace(b)
 				withUser := fmt.Sprintf("%s/%s", userArg.Get(d), s)
 				if withUser == b {
-					return withUser, nil
+					transformedArgs = append(transformedArgs, withUser)
+					goto LOOP_END
 				}
 			}
 
-			// Otherwise, just return the branch name the user provided
-			return s, nil
-		}},
+			// Otherwise, just use the branch name the user provided
+			transformedArgs = append(transformedArgs, s)
+
+		LOOP_END:
+		}
+
+		return transformedArgs, nil
+	}
+
+	userPrefixTransformer = func(s string, d *command.Data) (string, error) {
+		res, err := userPrefixesTransformer([]string{s}, d)
+
+		if len(res) == 0 {
+			return "", err
+		}
+		return res[0], err
+	}
+
+	branchArg = commander.Arg(
+		"BRANCH",
+		"Branch",
+		BranchCompleter(),
+		&commander.Transformer[string]{userPrefixTransformer},
 	)
 	branchesArg = commander.ListArg(
 		"BRANCH",
@@ -112,6 +135,7 @@ var (
 		1,
 		command.UnboundedList,
 		BranchesCompleter(),
+		&commander.Transformer[[]string]{userPrefixesTransformer},
 	)
 	mainFlag       = commander.BoolFlag("main", 'm', "Whether to diff against main branch or just local diffs")
 	prevCommitFlag = commander.BoolFlag("commit", 'c', "Whether to diff against the previous commit")
@@ -830,6 +854,7 @@ func (g *git) Node() command.Node {
 				"bd": commander.SerialNodes(
 					commander.Description("Delete branch"),
 					commander.FlagProcessor(forceDelete),
+					userArg,
 					branchesArg,
 					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 						flag := "-d"

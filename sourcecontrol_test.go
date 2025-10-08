@@ -1381,9 +1381,29 @@ func TestExecution(t *testing.T) {
 			{
 				name: "delete branch requires arg",
 				etc: &commandtest.ExecuteTestCase{
-					Args:       []string{"bd"},
+					Args: []string{"bd"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						userArg.Name: "person",
+					}},
 					WantStderr: "Argument \"BRANCH\" requires at least 1 argument, got 0\n",
 					WantErr:    fmt.Errorf(`Argument "BRANCH" requires at least 1 argument, got 0`),
+				},
+			},
+			{
+				name: "delete branch fails if can't get branches",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"bd", "tree"},
+					WantData: &command.Data{Values: map[string]interface{}{
+						userArg.Name: "person",
+					}},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Err: fmt.Errorf("whoops")},
+					},
+					WantStderr: "Custom transformer failed: failed to get git branches: failed to execute shell command: whoops\n",
+					WantErr:    fmt.Errorf(`Custom transformer failed: failed to get git branches: failed to execute shell command: whoops`),
 				},
 			},
 			{
@@ -1392,7 +1412,14 @@ func TestExecution(t *testing.T) {
 					Args: []string{"bd", "tree"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchesArg.Name(): []string{"tree"},
+						userArg.Name:       "person",
 					}},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{"xyz"}},
+					},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
 							`git branch -d "tree"`,
@@ -1412,7 +1439,14 @@ func TestExecution(t *testing.T) {
 					Args: []string{"bd", "tree"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchesArg.Name(): []string{"tree"},
+						userArg.Name:       "person",
 					}},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{"xyz"}},
+					},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
 							`git branch -d "tree"`,
@@ -1431,7 +1465,14 @@ func TestExecution(t *testing.T) {
 					Args: []string{"bd", "tree", "limb"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchesArg.Name(): []string{"tree", "limb"},
+						userArg.Name:       "person",
 					}},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{"xyz"}},
+					},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
 							`git branch -d "tree" "limb"`,
@@ -1453,7 +1494,14 @@ func TestExecution(t *testing.T) {
 					Args: []string{"bd", "tree", "limb"},
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchesArg.Name(): []string{"tree", "limb"},
+						userArg.Name:       "person",
 					}},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{"xyz"}},
+					},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
 							`git branch -d "tree" "limb"`,
@@ -1474,10 +1522,54 @@ func TestExecution(t *testing.T) {
 					WantData: &command.Data{Values: map[string]interface{}{
 						branchArg.Name():   []string{"tree"},
 						forceDelete.Name(): true,
+						userArg.Name:       "person",
 					}},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{"xyz"}},
+					},
 					WantExecuteData: &command.ExecuteData{
 						Executable: []string{
 							`git branch -D "tree"`,
+						},
+					},
+				},
+			},
+			{
+				name: "deletes a bunch of branches and with transformed user prefixes",
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{
+						"bd",
+						"b-1",        // Matches literal branch with no ambiguity
+						"b-2",        // Matches branch with user prefix
+						"b-3",        // Stays as is if literal and user prefix
+						"b-4",        // Adds user prefix if other prefix
+						"b-5",        // Deletes if no matches
+						"person/b-6", // Allows deleting with prefix
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						branchArg.Name(): []string{"b-1", "person/b-2", "b-3", "person/b-4", "b-5", "person/b-6"},
+						userArg.Name:     "person",
+					}},
+					WantRunContents: []*commandtest.RunContents{
+						{Name: "git", Args: []string{"branch", "--list"}},
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{
+							"root",
+							"b-1",
+							"person/b-2",
+							"b-3", "person/b-3",
+							"other/b-4", "person/b-4",
+							// No b-5
+							"person/b-6", "other/b-6",
+						}},
+					},
+					WantExecuteData: &command.ExecuteData{
+						Executable: []string{
+							`git branch -d "b-1" "person/b-2" "b-3" "person/b-4" "b-5" "person/b-6"`,
 						},
 					},
 				},
@@ -3421,7 +3513,7 @@ func TestAutocomplete(t *testing.T) {
 			},
 		},
 		{
-			name: "Branch completion strips user prefix",
+			name: "Branch completion offers suggestions without user prefix",
 			ctc: &commandtest.CompleteTestCase{
 				Args:          "cmd ch ",
 				SkipDataCheck: true,
@@ -3429,7 +3521,6 @@ func TestAutocomplete(t *testing.T) {
 					Suggestions: []string{
 						"b-1",
 						"b-2",
-						"other/b-1",
 						"person/b-1",
 						"person/b-2",
 					},
@@ -3439,7 +3530,53 @@ func TestAutocomplete(t *testing.T) {
 					Args: []string{"branch", "--list"},
 				}},
 				RunResponses: []*commandtest.FakeRun{{
-					Stdout: []string{"  b-1 ", "* 	b-2", "		other/b-1		", "person/b-1", " \tperson/b-2 "},
+					Stdout: []string{"person/b-1", " \tperson/b-2 "},
+				}},
+			},
+		},
+		{
+			name: "Branch completion offers suggestions without user prefix",
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd bd ",
+				SkipDataCheck: true,
+				Want: &command.Autocompletion{
+					Suggestions: []string{
+						"b-1",
+						"b-2",
+						"person/b-1",
+						"person/b-2",
+					},
+				},
+				WantRunContents: []*commandtest.RunContents{{
+					Name: "git",
+					Args: []string{"branch", "--list"},
+				}},
+				RunResponses: []*commandtest.FakeRun{{
+					Stdout: []string{"person/b-1", " \tperson/b-2 "},
+				}},
+			},
+		},
+		{
+			name: "Branch completion includes both",
+			ctc: &commandtest.CompleteTestCase{
+				Args:          "cmd ch ",
+				SkipDataCheck: true,
+				Want: &command.Autocompletion{
+					Suggestions: []string{
+						"b-1",
+						"b-2",
+						"other/b-1",
+						"other/b-3",
+						"person/b-1",
+						"person/b-2",
+					},
+				},
+				WantRunContents: []*commandtest.RunContents{{
+					Name: "git",
+					Args: []string{"branch", "--list"},
+				}},
+				RunResponses: []*commandtest.FakeRun{{
+					Stdout: []string{"  b-1 ", "* 	b-2", "		other/b-1		", "other/b-3\t", "person/b-1", " \tperson/b-2 "},
 				}},
 			},
 		},
