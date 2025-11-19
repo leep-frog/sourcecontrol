@@ -26,7 +26,7 @@ func joinByOS(cmds ...string) ([]string, error) {
 		}
 		return wr, nil
 	}
-	return nil, fmt.Errorf("Unknown OS (%q)", sourcerer.CurrentOS.Name())
+	return nil, fmt.Errorf("unknown OS (%q)", sourcerer.CurrentOS.Name())
 }
 
 func executableJoinByOS(cmds ...string) command.Processor {
@@ -386,7 +386,7 @@ func (g *git) GetDefaultBranch(d *command.Data) string {
 	return g.DefaultBranch
 }
 
-func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) commander.Completer[T] {
+func PrefixCompleter[T []string](includeUnknown bool, prefixCodes ...*regexp.Regexp) commander.Completer[T] {
 	return commander.CompleterFromFunc(func(t T, d *command.Data) (*command.Completion, error) {
 		// prefixRegex := regexp.MustCompile(prefixCode)
 		bc := &commander.ShellCommand[[]string]{
@@ -405,8 +405,13 @@ func PrefixCompleter[T any](includeUnknown bool, prefixCodes ...*regexp.Regexp) 
 
 		var suggestions []string
 		has := map[string]bool{}
+
+		for _, alreadyIncluded := range t {
+			has[alreadyIncluded] = true
+		}
+
 		addSuggestion := func(s string) {
-			if has[s] {
+			if has[s] || has[strings.TrimSuffix(strings.TrimSuffix(s, "/"), "\\")] {
 				return
 			}
 			has[s] = true

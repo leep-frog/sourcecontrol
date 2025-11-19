@@ -3081,6 +3081,12 @@ var (
 		false,
 		false,
 	}
+	createdDir = &gitStatusFile{
+		"created-dir/",
+		[]string{"? created-dir/"},
+		false,
+		false,
+	}
 	createdCachedFile = &gitStatusFile{
 		"created-cached.go",
 		[]string{"1 A. N... 000000 100644 100644 0000000000000000000000000000000000000000 49cc8ef0e116cef009fe0bd72473a964bbd07f9b created-cached.go"},
@@ -3108,6 +3114,7 @@ var (
 		deletedCachedFile,
 		deletedCachedCreatedFile,
 		createdFile,
+		createdDir,
 		createdCachedFile,
 		createdCachedModifiedFile,
 		createdCachedDeletedFile,
@@ -3117,12 +3124,31 @@ var (
 	diffNameCachedFiles = functional.Filter(allFiles, func(f *gitStatusFile) bool { return f.diffNameOnlyCached })
 )
 
+type autocompleteTestCase struct {
+	name      string
+	want      []string
+	wantFiles []*gitStatusFile
+	ctc       *commandtest.CompleteTestCase
+}
+
+func gitRmTestCase(name, args string, wantFiles []*gitStatusFile) *autocompleteTestCase {
+	return &autocompleteTestCase{
+		name:      name,
+		wantFiles: wantFiles,
+		ctc: &commandtest.CompleteTestCase{
+			Args:          args,
+			SkipDataCheck: true,
+		},
+	}
+}
+
 func TestAutocompletePorcelain(t *testing.T) {
-	for _, test := range []struct {
-		name      string
-		wantFiles []*gitStatusFile
-		ctc       *commandtest.CompleteTestCase
-	}{
+	createdDirNoSlash, ok := strings.CutSuffix(createdDir.name, "/")
+	if !ok {
+		t.Fatalf("expected createdDir.name to have trailing slash")
+	}
+
+	for _, test := range []*autocompleteTestCase{
 		{
 			name: "Completions for add",
 			wantFiles: []*gitStatusFile{
@@ -3130,6 +3156,7 @@ func TestAutocompletePorcelain(t *testing.T) {
 				modifiedCachedModifiedFile,
 				deletedFile,
 				deletedCachedCreatedFile,
+				createdDir,
 				createdFile,
 				createdCachedModifiedFile,
 				createdCachedDeletedFile,
@@ -3140,28 +3167,13 @@ func TestAutocompletePorcelain(t *testing.T) {
 			},
 		},
 		{
-			name: "Completions for rm",
-			wantFiles: []*gitStatusFile{
-				modifiedFile,
-				modifiedCachedModifiedFile,
-				deletedFile,
-				deletedCachedCreatedFile,
-				createdFile,
-				createdCachedModifiedFile,
-				createdCachedDeletedFile,
-			},
-			ctc: &commandtest.CompleteTestCase{
-				Args:          "cmd rm ",
-				SkipDataCheck: true,
-			},
-		},
-		{
 			name: "Completions for undo change",
 			wantFiles: []*gitStatusFile{
 				modifiedFile,
 				modifiedCachedModifiedFile,
 				deletedFile,
 				deletedCachedCreatedFile,
+				createdDir,
 				createdFile,
 				createdCachedModifiedFile,
 				createdCachedDeletedFile,
@@ -3196,6 +3208,7 @@ func TestAutocompletePorcelain(t *testing.T) {
 				deletedFile,
 				deletedCachedFile,
 				deletedCachedCreatedFile,
+				createdDir,
 				createdFile,
 				createdCachedFile,
 				createdCachedModifiedFile,
@@ -3206,6 +3219,48 @@ func TestAutocompletePorcelain(t *testing.T) {
 				SkipDataCheck: true,
 			},
 		},
+		gitRmTestCase(
+			"Completions for rm",
+			"cmd rm ",
+			[]*gitStatusFile{
+				modifiedFile,
+				modifiedCachedModifiedFile,
+				deletedFile,
+				deletedCachedCreatedFile,
+				createdDir,
+				createdFile,
+				createdCachedModifiedFile,
+				createdCachedDeletedFile,
+			},
+		),
+		gitRmTestCase(
+			"Completions for directory when previous has slash",
+			fmt.Sprintf("cmd rm %s ", fmt.Sprintf("cmd rm %s/ ", createdDirNoSlash)),
+			[]*gitStatusFile{
+				modifiedFile,
+				modifiedCachedModifiedFile,
+				deletedFile,
+				deletedCachedCreatedFile,
+				// createdDir,
+				createdFile,
+				createdCachedModifiedFile,
+				createdCachedDeletedFile,
+			},
+		),
+		gitRmTestCase(
+			"Completions for directory when previous does not have slash",
+			fmt.Sprintf("cmd rm %s ", createdDirNoSlash),
+			[]*gitStatusFile{
+				modifiedFile,
+				modifiedCachedModifiedFile,
+				deletedFile,
+				deletedCachedCreatedFile,
+				// createdDir,
+				createdFile,
+				createdCachedModifiedFile,
+				createdCachedDeletedFile,
+			},
+		),
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			g := &git{}
@@ -3222,8 +3277,12 @@ func TestAutocompletePorcelain(t *testing.T) {
 				Args: []string{"status", "--porcelain=v2"},
 			}}
 
+			wantSuggestions := test.want
+			if len(wantSuggestions) == 0 {
+				wantSuggestions = functional.Map[*gitStatusFile, string](test.wantFiles, func(f *gitStatusFile) string { return f.name })
+			}
 			test.ctc.Want = &command.Autocompletion{
-				Suggestions: functional.Map[*gitStatusFile, string](test.wantFiles, func(f *gitStatusFile) string { return f.name }),
+				Suggestions: wantSuggestions,
 			}
 			slices.Sort(test.ctc.Want.Suggestions)
 
@@ -3681,8 +3740,8 @@ func TestMetadata(t *testing.T) {
 		etc := &commandtest.ExecuteTestCase{
 			Node:            g.Node(),
 			Args:            []string{"pp"},
-			WantErr:         fmt.Errorf(`Unknown OS ("other")`),
-			WantStderr:      "Unknown OS (\"other\")\n",
+			WantErr:         fmt.Errorf(`unknown OS ("other")`),
+			WantStderr:      "unknown OS (\"other\")\n",
 			WantExecuteData: &command.ExecuteData{Executable: []string{""}, FunctionWrap: true},
 		}
 		fos := &fakeOS{sourcerer.Linux(), "other"}
