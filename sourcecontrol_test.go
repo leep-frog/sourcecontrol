@@ -2918,7 +2918,7 @@ func TestExecution(t *testing.T) {
 				},
 			},
 			{
-				name: "end branch requires parent branch",
+				name: "end branch with unknown parent falls back to default main branch",
 				etc: &commandtest.ExecuteTestCase{
 					Args: []string{"end"},
 					WantRunContents: []*commandtest.RunContents{
@@ -2930,17 +2930,94 @@ func TestExecution(t *testing.T) {
 								"HEAD",
 							},
 						},
+						repoRunContents(),
 					},
 					RunResponses: []*commandtest.FakeRun{
-						{
-							Stdout: []string{"tree-branch"},
-						},
+						{Stdout: []string{"tree-branch"}},
+						{Stdout: []string{"fake_repo"}},
 					},
 					WantData: &command.Data{Values: map[string]interface{}{
 						currentBranchArg.ArgName: "tree-branch",
+						repoUrl.ArgName:          "fake_repo",
 					}},
-					WantStderr: "branch tree-branch does not have a known parent branch\n",
-					WantErr:    fmt.Errorf("branch tree-branch does not have a known parent branch"),
+				},
+				osChecks: map[string]*osCheck{
+					"windows": {
+						wantExecutable: []string{
+							wCmd("git checkout main"),
+							wCmd("git pull"),
+							wCmd("gbd tree-branch"),
+						},
+						wantStdout: []string{
+							wCmd("git checkout main"),
+							wCmd("git pull"),
+							wCmd("gbd tree-branch"),
+							"",
+						},
+					},
+					"linux": {
+						wantExecutable: []string{
+							"git checkout main && git pull && gbd tree-branch",
+						},
+						wantStdout: []string{
+							"git checkout main && git pull && gbd tree-branch",
+							"",
+						},
+					},
+				},
+			},
+			{
+				name: "end branch with unknown parent falls back to default main branch for current repo",
+				g: &git{
+					MainBranches: map[string]string{
+						"fake_repo": "custom-main",
+					},
+				},
+				etc: &commandtest.ExecuteTestCase{
+					Args: []string{"end"},
+					WantRunContents: []*commandtest.RunContents{
+						{
+							Name: "git",
+							Args: []string{
+								"rev-parse",
+								"--abbrev-ref",
+								"HEAD",
+							},
+						},
+						repoRunContents(),
+					},
+					RunResponses: []*commandtest.FakeRun{
+						{Stdout: []string{"tree-branch"}},
+						{Stdout: []string{"fake_repo"}},
+					},
+					WantData: &command.Data{Values: map[string]interface{}{
+						currentBranchArg.ArgName: "tree-branch",
+						repoUrl.ArgName:          "fake_repo",
+					}},
+				},
+				osChecks: map[string]*osCheck{
+					"windows": {
+						wantExecutable: []string{
+							wCmd("git checkout custom-main"),
+							wCmd("git pull"),
+							wCmd("gbd tree-branch"),
+						},
+						wantStdout: []string{
+							wCmd("git checkout custom-main"),
+							wCmd("git pull"),
+							wCmd("gbd tree-branch"),
+							"",
+						},
+					},
+					"linux": {
+						wantExecutable: []string{
+							"git checkout custom-main && git pull && gbd tree-branch",
+						},
+						wantStdout: []string{
+							"git checkout custom-main && git pull && gbd tree-branch",
+							"",
+						},
+					},
 				},
 			},
 			{
@@ -2961,14 +3038,15 @@ func TestExecution(t *testing.T) {
 								"HEAD",
 							},
 						},
+						repoRunContents(),
 					},
 					RunResponses: []*commandtest.FakeRun{
-						{
-							Stdout: []string{"tree-branch"},
-						},
+						{Stdout: []string{"tree-branch"}},
+						{Stdout: []string{"fake_repo"}},
 					},
 					WantData: &command.Data{Values: map[string]interface{}{
 						currentBranchArg.ArgName: "tree-branch",
+						repoUrl.ArgName:          "fake_repo",
 					}},
 				},
 				osChecks: map[string]*osCheck{

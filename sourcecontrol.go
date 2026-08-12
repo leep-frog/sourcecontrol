@@ -920,11 +920,12 @@ func (g *git) Node() command.Node {
 				"end": commander.SerialNodes(
 					commander.Description("End a branch after it has been merged"),
 					currentBranchArg,
+					repoUrl,
 					commander.ExecutableProcessor(func(o command.Output, d *command.Data) ([]string, error) {
 						currentBranch := currentBranchArg.Get(d)
 						parent, ok := g.ParentBranches[currentBranch]
 						if !ok {
-							return nil, o.Stderrf("branch %s does not have a known parent branch\n", currentBranch)
+							parent = g.GetDefaultBranch(d)
 						}
 
 						return joinByOS(
